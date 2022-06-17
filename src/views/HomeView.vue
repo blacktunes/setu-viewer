@@ -4,7 +4,7 @@
       <van-dropdown-menu>
         <van-dropdown-item
           :title="title"
-          ref="item"
+          ref="dropdownItem"
           @open="open"
           @closed="closed"
         >
@@ -59,12 +59,12 @@
       :finished="finished"
       error-text="请求失败，点击重新加载"
       @load="onLoad"
+      :immediate-check="false"
     >
       <van-empty
         v-if="list.length < 1 && !loading"
-        image="/empty.jpg"
+        :image="require('@/assets/empty.jpg')"
         image-size="300"
-        description="啥都没有"
         style="height: 100%"
       />
       <van-swipe-cell v-for="(img, index) in list" :key="index">
@@ -114,23 +114,64 @@
         </template>
       </van-swipe-cell>
     </van-list>
+    <transition name="van-slide-up">
+      <van-button
+        v-if="imageShow"
+        class="save"
+        icon="like"
+        type="danger"
+        plain
+        round
+        :loading="imageLoading"
+        @click="saveImage"
+      />
+    </transition>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { DropdownItemInstance, ImagePreview } from 'vant'
 import { computed, reactive, ref } from 'vue'
+import { ImagePreview, DropdownItemInstance } from 'vant'
+import { components } from '@/assets/global'
 import axios from 'axios'
 
 const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
 // const api = 'http://127.0.0.1:8900/api/setu?k=xianyu'
 
+const imageShow = ref(false)
+const imageLoading = ref(false)
+let imageUrl = ''
+
 const showImage = (url: string) => {
-  ImagePreview({
+  if (window.plus) {
+    imageShow.value = true
+    imageLoading.value = false
+    imageUrl = url
+  }
+  components.instance = ImagePreview({
     images: [url],
     showIndex: false,
-    closeable: true
+    closeable: !window.plus,
+    onClose: () => {
+      imageShow.value = false
+      components.instance = null
+    }
   })
+}
+
+const saveImage = () => {
+  const dtask = plus.downloader.createDownload(imageUrl, {}, (d: { filename: string }, status: number) => {
+    if (status === 200) {
+      plus.gallery.save(d.filename, () => {
+        plus.nativeUI.toast(`${d.filename}已保存`)
+      })
+    } else {
+      plus.nativeUI.toast(`${d.filename}下载失败`)
+    }
+    imageLoading.value = false
+  })
+  imageLoading.value = true
+  dtask.start()
 }
 
 const list = ref<string[]>([])
@@ -172,8 +213,6 @@ const data = reactive({
   keyword: ''
 })
 
-const item = ref<DropdownItemInstance>()
-
 const open = () => {
   data.open = true
   data.click = false
@@ -190,10 +229,14 @@ const closed = () => {
   keyword.value = data.keyword
 }
 
+const dropdownItem = ref<DropdownItemInstance>()
+
 const onConfirm = () => {
   if (canConfirm.value) return
   data.click = true
-  item.value?.toggle()
+  if (dropdownItem.value) {
+    dropdownItem.value.toggle()
+  }
   list.value = []
   getData()
 }
@@ -241,6 +284,8 @@ const getData = () => {
       loading.value = false
     })
 }
+
+defineExpose([dropdownItem])
 </script>
 
 <style lang="stylus" scoped>
@@ -263,6 +308,14 @@ const getData = () => {
 
       .tag
         margin 2px 5px
+
+  .save
+    z-index 9999
+    position fixed
+    bottom 15px
+    left calc(50% - 22.5px)
+    width 45px
+    height 45px
 
 @media screen and (max-width 600px)
   .info

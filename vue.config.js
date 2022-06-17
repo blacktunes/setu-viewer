@@ -11,11 +11,5 @@ module.exports = defineConfig({
       })
     ]
   },
-  devServer: {
-    proxy: {
-      '/api': {
-        target: 'https://api.lolicon.app/setu/v2'
-      }
-    }
-  }
+  publicPath: ''
 })

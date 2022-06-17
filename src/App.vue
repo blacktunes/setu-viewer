@@ -1,10 +1,16 @@
 <template>
   <div class="main">
-    <router-view class="view" />
+    <HomeView class="view" ref="Home" />
   </div>
 </template>
 
 <script lang="ts" setup>
+import { ref } from '@vue/reactivity'
+import HomeView from './views/HomeView.vue'
+
+const Home = ref()
+
+defineExpose([Home])
 </script>
 
 <style lang="stylus">
