@@ -122,8 +122,8 @@ import { DropdownItemInstance, ImagePreview } from 'vant'
 import { computed, reactive, ref } from 'vue'
 import axios from 'axios'
 
-// const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
-const api = 'http://127.0.0.1:8900/api/setu?k=xianyu'
+const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
+// const api = 'http://127.0.0.1:8900/api/setu?k=xianyu'
 
 const showImage = (url: string) => {
   ImagePreview({
