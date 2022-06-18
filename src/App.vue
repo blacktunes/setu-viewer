@@ -5,7 +5,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from '@vue/reactivity'
+import { ref } from 'vue'
 import HomeView from './views/HomeView.vue'
 
 const Home = ref()

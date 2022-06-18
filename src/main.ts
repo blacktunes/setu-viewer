@@ -8,6 +8,7 @@ import '@vant/touch-emulator'
 
 const app = createApp(App)
   .use(Lazyload, {
+    preload: 2,
     loading: require('@/assets/loading.jpg'),
     error: require('@/assets/error.jpg')
   })
@@ -15,7 +16,7 @@ const app = createApp(App)
 
 let firstBack: number | null = null
 const plusReady = () => {
-  plus.key.addEventListener('backbutton', () => {
+  window.plus.key.addEventListener('backbutton', () => {
     if ((app.$refs.Home as any).$refs.dropdownItem.state.showPopup) {
       (app.$refs.Home as any).$refs.dropdownItem.toggle()
     } else if (components.instance) {
@@ -23,13 +24,13 @@ const plusReady = () => {
     } else {
       if (!firstBack) {
         firstBack = new Date().getTime()
-        plus.nativeUI.toast('再次返回退出应用')
+        window.plus.nativeUI.toast('再次返回退出应用')
         setTimeout(() => {
           firstBack = null
         }, 2000)
       } else {
         if (new Date().getTime() - firstBack < 1000) {
-          plus.runtime.quit()
+          window.plus.runtime.quit()
         }
       }
     }

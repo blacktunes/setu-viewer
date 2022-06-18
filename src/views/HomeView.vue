@@ -8,7 +8,7 @@
           @open="open"
           @closed="closed"
         >
-          <van-cell center title="模式">
+          <van-cell center title="MODE">
             <template #right-icon>
               <van-radio-group v-model="mode" direction="horizontal">
                 <van-radio :name="0">随机</van-radio>
@@ -45,8 +45,9 @@
               round
               @click="onConfirm"
               :disabled="canConfirm"
+              plain
             >
-              确认
+              开始瑟瑟
             </van-button>
           </div>
         </van-dropdown-item>
@@ -59,7 +60,6 @@
       :finished="finished"
       error-text="请求失败，点击重新加载"
       @load="onLoad"
-      :immediate-check="false"
     >
       <van-empty
         v-if="list.length < 1 && !loading"
@@ -69,7 +69,7 @@
       />
       <van-swipe-cell v-for="(img, index) in list" :key="index">
         <img
-          @click="showImage(img.urls.regular)"
+          @click="showImage(index)"
           style="width: 100%"
           v-lazy="img.urls.small"
           draggable="false"
@@ -135,38 +135,61 @@ import { ImagePreview, DropdownItemInstance } from 'vant'
 import { components } from '@/assets/global'
 import axios from 'axios'
 
+interface ApiRes {
+  pid: number
+  p: number
+  uid: number
+  title: string
+  author: string
+  r18: boolean
+  width: number
+  height: number
+  tags: string[]
+  ext: string
+  uploadDate: number
+  urls: {
+    small: string
+    regular: string
+  }
+}
+
 const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
 // const api = 'http://127.0.0.1:8900/api/setu?k=xianyu'
 
 const imageShow = ref(false)
 const imageLoading = ref(false)
-let imageUrl = ''
+const index = ref(0)
+const imageUrl = computed(() => _list.value[index.value])
 
-const showImage = (url: string) => {
+const showImage = (key: number) => {
   if (window.plus) {
     imageShow.value = true
     imageLoading.value = false
-    imageUrl = url
+    index.value = key
   }
   components.instance = ImagePreview({
-    images: [url],
-    showIndex: false,
+    images: _list.value,
+    startPosition: key,
+    showIndex: true,
     closeable: !window.plus,
     onClose: () => {
       imageShow.value = false
       components.instance = null
+    },
+    onChange: (newKey) => {
+      index.value = newKey
     }
   })
 }
 
 const saveImage = () => {
-  const dtask = plus.downloader.createDownload(imageUrl, {}, (d: { filename: string }, status: number) => {
+  const dtask = window.plus.downloader.createDownload(imageUrl, {}, (d: { filename: string }, status: number) => {
     if (status === 200) {
-      plus.gallery.save(d.filename, () => {
-        plus.nativeUI.toast(`${d.filename}已保存`)
+      window.plus.gallery.save(d.filename, () => {
+        window.plus.nativeUI.toast(`${d.filename}已保存`)
       })
     } else {
-      plus.nativeUI.toast(`${d.filename}下载失败`)
+      window.plus.nativeUI.toast(`${d.filename}下载失败`)
     }
     imageLoading.value = false
   })
@@ -174,7 +197,9 @@ const saveImage = () => {
   dtask.start()
 }
 
-const list = ref<string[]>([])
+const list = ref<ApiRes[]>([])
+const _list = computed(() => list.value.map(item => item.urls.regular))
+
 const error = ref(false)
 const loading = ref(false)
 const finished = ref(false)
@@ -202,7 +227,7 @@ const title = computed(() => {
       return keyword.value || '关键词'
     }
   }
-  return 'SETU'
+  return '随机涩图'
 })
 
 const data = reactive({
@@ -272,9 +297,14 @@ const getData = () => {
     _api += `&keyword=${keyword.value}`
   }
   axios.get(_api)
-    .then(res => {
-      list.value = [...new Set([...list.value, ...res.data])]
-      if (list.value.length < 1) finished.value = true
+    .then((res: { data: ApiRes[] }) => {
+      const temp: ApiRes[] = []
+      res.data.forEach(item => {
+        if (list.value.some(i => (i.pid === item.pid && i.p === item.p))) return
+        temp.push(item)
+      })
+      list.value = [...list.value, ...temp]
+      if (temp.length < 1 || list.value.length < 1) finished.value = true
     })
     .catch((error) => {
       console.error(error)
