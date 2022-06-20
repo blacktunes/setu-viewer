@@ -8,10 +8,11 @@
           @open="open"
           @closed="closed"
         >
-          <van-cell center title="MODE">
+          <van-cell center title="色色模式">
             <template #right-icon>
               <van-radio-group v-model="mode" direction="horizontal">
                 <van-radio :name="0">随机</van-radio>
+                <van-radio :name="3">收藏</van-radio>
                 <van-radio :name="1">UID</van-radio>
                 <van-radio :name="2">关键词</van-radio>
               </van-radio-group>
@@ -47,7 +48,7 @@
               :disabled="canConfirm"
               plain
             >
-              开始瑟瑟
+              {{ btnText }}
             </van-button>
           </div>
         </van-dropdown-item>
@@ -58,16 +59,19 @@
       v-model:loading="loading"
       v-model:error="error"
       :finished="finished"
-      error-text="请求失败，点击重新加载"
+      :immediate-check="false"
       @load="onLoad"
+      loading-text="正在色色..."
+      error-text="要不点这重试?"
+      finished-text=""
     >
       <van-empty
-        v-if="list.length < 1 && !loading"
-        :image="require('@/assets/empty.jpg')"
+        v-if="(list.length < 1 && loading) || list.length < 1"
+        :image="emptyImg"
         image-size="300"
-        style="height: 100%"
+        style="height: 90%"
       />
-      <van-swipe-cell v-for="(img, index) in list" :key="index">
+      <van-swipe-cell v-for="(img, index) in list" :key="index" :id="index">
         <img
           @click="showImage(index)"
           style="width: 100%"
@@ -110,29 +114,52 @@
                 </div>
               </template>
             </van-cell>
+            <van-cell style="justify-content: center">
+              <template #right-icon>
+                <van-button
+                  style="width: 40px; height: 40px"
+                  icon="like"
+                  type="danger"
+                  round
+                  :plain="checkLocalData(img)"
+                  @click.stop="setLoaclData(img)"
+                />
+              </template>
+            </van-cell>
           </van-cell-group>
         </template>
       </van-swipe-cell>
     </van-list>
-    <transition name="van-slide-up">
-      <van-button
-        v-if="imageShow"
-        class="save"
-        icon="like"
-        type="danger"
-        plain
-        round
-        :loading="imageLoading"
-        @click="saveImage"
-      />
-    </transition>
+    <van-image-preview
+      v-model:show="imageShow"
+      :images="_list"
+      :start-position="index"
+      :loop="false"
+      :close-on-popstate="false"
+      @close="onClose"
+      @change="onChange"
+    >
+      <template #cover>
+        <transition name="van-slide-up">
+          <van-button
+            v-if="imageShow"
+            class="save"
+            icon="down"
+            type="danger"
+            plain
+            round
+            :loading="imageLoading"
+            @click="saveImage"
+          />
+        </transition>
+      </template>
+    </van-image-preview>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ImagePreview, DropdownItemInstance } from 'vant'
-import { components } from '@/assets/global'
 import axios from 'axios'
 
 interface ApiRes {
@@ -153,37 +180,48 @@ interface ApiRes {
   }
 }
 
-const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
+const VanImagePreview = ImagePreview.Component
+
+// const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
 // const api = 'http://127.0.0.1:8900/api/setu?k=xianyu'
+const api = 'https://api.lolicon.app/setu/v2?proxy=i.pixiv.re&size=small&size=regular&num=10'
+const mode = ref(0)
+
+const local = ref(false)
+const webList = ref<ApiRes[]>([])
+const loaclList = ref<ApiRes[]>([])
+const list = computed(() => local.value ? loaclList.value : webList.value)
+const _list = computed(() => list.value.map(item => item.urls.regular))
 
 const imageShow = ref(false)
 const imageLoading = ref(false)
 const index = ref(0)
-const imageUrl = computed(() => _list.value[index.value])
+let _index = 0
 
 const showImage = (key: number) => {
   if (window.plus) {
-    imageShow.value = true
     imageLoading.value = false
-    index.value = key
   }
-  components.instance = ImagePreview({
-    images: _list.value,
-    startPosition: key,
-    showIndex: true,
-    closeable: !window.plus,
-    onClose: () => {
-      imageShow.value = false
-      components.instance = null
-    },
-    onChange: (newKey) => {
-      index.value = newKey
-    }
-  })
+  index.value = key
+  _index = key
+  imageShow.value = true
+}
+
+const onClose = () => {
+  imageShow.value = false
+}
+
+const onChange = (newKey: number) => {
+  index.value = newKey
+  if (newKey === _index) return
+  if (_index !== -1) _index = -1
+
+  window.location.hash = String(newKey)
 }
 
 const saveImage = () => {
-  const dtask = window.plus.downloader.createDownload(imageUrl, {}, (d: { filename: string }, status: number) => {
+  if (!window.plus) return
+  const dtask = window.plus.downloader.createDownload(_list.value[index.value], {}, (d: { filename: string }, status: number) => {
     if (status === 200) {
       window.plus.gallery.save(d.filename, () => {
         window.plus.nativeUI.toast(`${d.filename}已保存`)
@@ -197,9 +235,6 @@ const saveImage = () => {
   dtask.start()
 }
 
-const list = ref<ApiRes[]>([])
-const _list = computed(() => list.value.map(item => item.urls.regular))
-
 const error = ref(false)
 const loading = ref(false)
 const finished = ref(false)
@@ -207,33 +242,34 @@ const onLoad = () => {
   getData()
 }
 
-const mode = ref(0)
+const emptyImg = computed(() => {
+  if (loading.value) return require('@/assets/ready.jpg')
+  if (list.value.length < 1) return require('@/assets/empty.jpg')
+  return require('@/assets/loading.jpg')
+})
+
 const UID = ref()
 const keyword = ref('')
 
 const title = computed(() => {
-  if (data.open) {
-    if (data.mode === 1) {
-      return `UID: ${data.UID}` || 'UID'
-    }
-    if (data.mode === 2) {
-      return data.keyword || '关键词'
-    }
-  } else {
-    if (mode.value === 1) {
-      return `UID: ${UID.value}` || 'UID'
-    }
-    if (mode.value === 2) {
-      return keyword.value || '关键词'
-    }
+  if (mode.value === 1) {
+    const uid = data.open ? data.UID : UID.value
+    return uid ? `UID: ${uid}` : 'UID'
   }
-  return '随机涩图'
+  if (mode.value === 2) {
+    return (data.open ? data.keyword : keyword.value) || '关键词'
+  }
+  if (mode.value === 3) {
+    return '收藏'
+  }
+  return '随机色图'
 })
 
 const data = reactive({
   open: false,
   click: false,
   mode: 0,
+  _mode: 0,
   UID: 0,
   keyword: ''
 })
@@ -244,6 +280,10 @@ const open = () => {
   data.mode = mode.value
   data.UID = UID.value
   data.keyword = keyword.value
+
+  if (mode.value !== 3) {
+    data._mode = mode.value
+  }
 }
 
 const closed = () => {
@@ -258,23 +298,62 @@ const dropdownItem = ref<DropdownItemInstance>()
 
 const onConfirm = () => {
   if (canConfirm.value) return
+
   data.click = true
   if (dropdownItem.value) {
     dropdownItem.value.toggle()
   }
-  list.value = []
+  if (mode.value === 3) {
+    getLoaclData()
+    finished.value = true
+    local.value = true
+    return
+  }
+  finished.value = false
+  local.value = false
+
+  if (mode.value !== 1) UID.value = null
+  if (mode.value !== 2) keyword.value = ''
+
+  if (shouldGetData.value) {
+    finished.value = true
+    nextTick(() => {
+      finished.value = false
+    })
+    return
+  }
+  webList.value = []
   getData()
 }
 
+const shouldGetData = computed(
+  () =>
+    (data.mode === 3 && mode.value === data._mode) ||
+    (mode.value === 2 && keyword.value === data.keyword) ||
+    (mode.value === 1 && UID.value === data.UID)
+)
+
 const canConfirm = computed(() => {
-  if ((mode.value === 1 && (UID.value === data.UID || !UID.value)) || (mode.value === 2 && (keyword.value === data.keyword || !keyword.value)) || (mode.value === 0 && data.mode === 0)) {
+  if (
+    (mode.value === 1 && (UID.value === data.UID || !UID.value)) ||
+    (mode.value === 2 && (keyword.value === data.keyword || !keyword.value)) ||
+    (mode.value === 3 && data.mode === 3) ||
+    (mode.value === 0 && data.mode === 0)
+  ) {
+    if (data.mode === 3 && mode.value === data._mode) return false
     return true
   } else {
     return false
   }
 })
 
-const search = (type: 1 | 2, key: number | string) => {
+const btnText = computed(() => {
+  if (!canConfirm.value && shouldGetData.value) return '继续色色'
+  if (mode.value === 3) return '我的色图'
+  return '开始色色'
+})
+
+const search = (type: 1 | 2 | 3, key: number | string) => {
   if (type === 1) {
     mode.value = 1
     UID.value = key
@@ -283,11 +362,36 @@ const search = (type: 1 | 2, key: number | string) => {
     mode.value = 2
     keyword.value = key as string
   }
-  list.value = []
+  webList.value = []
   getData()
 }
 
+const checkLocalData = (item: ApiRes) => {
+  return !loaclList.value.some(_item => _item.pid === item.pid && _item.p === item.p)
+}
+
+const setLoaclData = (item: ApiRes) => {
+  const loaclIndex = loaclList.value.findIndex(_item => _item.pid === item.pid && _item.p === item.p)
+  if (loaclIndex !== -1) {
+    loaclList.value.splice(loaclIndex, 1)
+  } else {
+    loaclList.value.push(item)
+  }
+  localStorage.setItem('collection', JSON.stringify(loaclList.value))
+}
+
+const getLoaclData = () => {
+  try {
+    const temp2: ApiRes[] = JSON.parse(localStorage.getItem('collection') || '[]')
+    loaclList.value = temp2
+  } catch {
+    loaclList.value = []
+  }
+}
+
 const getData = () => {
+  if (error.value) return
+
   finished.value = false
   let _api = api
   loading.value = true
@@ -297,25 +401,38 @@ const getData = () => {
     _api += `&keyword=${keyword.value}`
   }
   axios.get(_api)
-    .then((res: { data: ApiRes[] }) => {
+    .then((res: { data: { error?: string, data: ApiRes[] } }) => {
+      if (!ready.value) ready.value = true
+
+      if (res.data.error) throw Error(res.data.error)
+
       const temp: ApiRes[] = []
-      res.data.forEach(item => {
-        if (list.value.some(i => (i.pid === item.pid && i.p === item.p))) return
+      res.data.data.forEach(item => {
+        if (webList.value.some(i => (i.pid === item.pid && i.p === item.p))) return
         temp.push(item)
       })
-      list.value = [...list.value, ...temp]
-      if (temp.length < 1 || list.value.length < 1) finished.value = true
+      webList.value = [...webList.value, ...temp]
+      if (temp.length < 1 || webList.value.length < 1) finished.value = true
     })
-    .catch((error) => {
-      console.error(error)
+    .catch(err => {
+      loading.value = false
       error.value = true
+      console.error(err)
     })
     .finally(() => {
-      loading.value = false
+      setTimeout(() => {
+        loading.value = false
+      }, 300)
     })
 }
 
-defineExpose([dropdownItem])
+const ready = ref(false)
+onMounted(() => {
+  getData()
+})
+getLoaclData()
+
+defineExpose([dropdownItem, imageShow])
 </script>
 
 <style lang="stylus" scoped>
@@ -324,6 +441,7 @@ defineExpose([dropdownItem])
   flex-direction column
 
   .list
+    overflow-y auto
     flex 1
     background #ddd
 
@@ -346,6 +464,7 @@ defineExpose([dropdownItem])
     left calc(50% - 22.5px)
     width 45px
     height 45px
+    font-size 20px
 
 @media screen and (max-width 600px)
   .info

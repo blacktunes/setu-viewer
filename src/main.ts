@@ -2,13 +2,12 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import { Lazyload } from 'vant'
-import { components } from './assets/global'
 import 'vant/lib/index.css'
 import '@vant/touch-emulator'
 
 const app = createApp(App)
   .use(Lazyload, {
-    preload: 2,
+    preload: 4,
     loading: require('@/assets/loading.jpg'),
     error: require('@/assets/error.jpg')
   })
@@ -17,10 +16,12 @@ const app = createApp(App)
 let firstBack: number | null = null
 const plusReady = () => {
   window.plus.key.addEventListener('backbutton', () => {
-    if ((app.$refs.Home as any).$refs.dropdownItem.state.showPopup) {
-      (app.$refs.Home as any).$refs.dropdownItem.toggle()
-    } else if (components.instance) {
-      components.instance.close()
+    const homeRef = app.$refs.Home as any
+
+    if (homeRef[0].state.showPopup) {
+      homeRef[0].toggle()
+    } else if (homeRef[1]) {
+      homeRef[1] = false
     } else {
       if (!firstBack) {
         firstBack = new Date().getTime()
