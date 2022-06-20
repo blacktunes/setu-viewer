@@ -60,10 +60,11 @@
       v-model:error="error"
       :finished="finished"
       :immediate-check="false"
-      @load="onLoad"
       loading-text="正在色色..."
       error-text="要不点这重试?"
       finished-text=""
+      offset="1500"
+      @load="onLoad"
     >
       <van-empty
         v-if="(list.length < 1 && loading) || list.length < 1"
@@ -184,73 +185,15 @@ const VanImagePreview = ImagePreview.Component
 
 // const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
 // const api = 'http://127.0.0.1:8900/api/setu?k=xianyu'
-const api = 'https://api.lolicon.app/setu/v2?proxy=i.pixiv.re&size=small&size=regular&num=10'
+const api =
+  'https://api.lolicon.app/setu/v2?proxy=i.pixiv.re&size=small&size=regular&num=20'
+
+// 菜单设置
 const mode = ref(0)
-
-const local = ref(false)
-const webList = ref<ApiRes[]>([])
-const loaclList = ref<ApiRes[]>([])
-const list = computed(() => local.value ? loaclList.value : webList.value)
-const _list = computed(() => list.value.map(item => item.urls.regular))
-
-const imageShow = ref(false)
-const imageLoading = ref(false)
-const index = ref(0)
-let _index = 0
-
-const showImage = (key: number) => {
-  if (window.plus) {
-    imageLoading.value = false
-  }
-  index.value = key
-  _index = key
-  imageShow.value = true
-}
-
-const onClose = () => {
-  imageShow.value = false
-}
-
-const onChange = (newKey: number) => {
-  index.value = newKey
-  if (newKey === _index) return
-  if (_index !== -1) _index = -1
-
-  window.location.hash = String(newKey)
-}
-
-const saveImage = () => {
-  if (!window.plus) return
-  const dtask = window.plus.downloader.createDownload(_list.value[index.value], {}, (d: { filename: string }, status: number) => {
-    if (status === 200) {
-      window.plus.gallery.save(d.filename, () => {
-        window.plus.nativeUI.toast(`${d.filename}已保存`)
-      })
-    } else {
-      window.plus.nativeUI.toast(`${d.filename}下载失败`)
-    }
-    imageLoading.value = false
-  })
-  imageLoading.value = true
-  dtask.start()
-}
-
-const error = ref(false)
-const loading = ref(false)
-const finished = ref(false)
-const onLoad = () => {
-  getData()
-}
-
-const emptyImg = computed(() => {
-  if (loading.value) return require('@/assets/ready.jpg')
-  if (list.value.length < 1) return require('@/assets/empty.jpg')
-  return require('@/assets/loading.jpg')
-})
-
 const UID = ref()
 const keyword = ref('')
 
+// 下拉菜单
 const title = computed(() => {
   if (mode.value === 1) {
     const uid = data.open ? data.UID : UID.value
@@ -366,12 +309,37 @@ const search = (type: 1 | 2 | 3, key: number | string) => {
   getData()
 }
 
+// 消息列表
+const local = ref(false)
+const webList = ref<ApiRes[]>([])
+const loaclList = ref<ApiRes[]>([])
+const list = computed(() => (local.value ? loaclList.value : webList.value))
+const _list = computed(() => list.value.map(item => item.urls.regular))
+
+const error = ref(false)
+const loading = ref(false)
+const finished = ref(false)
+const onLoad = () => {
+  getData()
+}
+
+const emptyImg = computed(() => {
+  if (error.value) return require('@/assets/loading.jpg')
+  if (loading.value) return require('@/assets/ready.jpg')
+  if (list.value.length < 1) return require('@/assets/empty.jpg')
+  return require('@/assets/loading.jpg')
+})
+
 const checkLocalData = (item: ApiRes) => {
-  return !loaclList.value.some(_item => _item.pid === item.pid && _item.p === item.p)
+  return !loaclList.value.some(
+    _item => _item.pid === item.pid && _item.p === item.p
+  )
 }
 
 const setLoaclData = (item: ApiRes) => {
-  const loaclIndex = loaclList.value.findIndex(_item => _item.pid === item.pid && _item.p === item.p)
+  const loaclIndex = loaclList.value.findIndex(
+    _item => _item.pid === item.pid && _item.p === item.p
+  )
   if (loaclIndex !== -1) {
     loaclList.value.splice(loaclIndex, 1)
   } else {
@@ -382,7 +350,9 @@ const setLoaclData = (item: ApiRes) => {
 
 const getLoaclData = () => {
   try {
-    const temp2: ApiRes[] = JSON.parse(localStorage.getItem('collection') || '[]')
+    const temp2: ApiRes[] = JSON.parse(
+      localStorage.getItem('collection') || '[]'
+    )
     loaclList.value = temp2
   } catch {
     loaclList.value = []
@@ -400,15 +370,16 @@ const getData = () => {
   } else if (mode.value === 2) {
     _api += `&keyword=${keyword.value}`
   }
-  axios.get(_api)
-    .then((res: { data: { error?: string, data: ApiRes[] } }) => {
-      if (!ready.value) ready.value = true
-
+  axios
+    .get(_api)
+    .then((res: { data: { error?: string; data: ApiRes[] } }) => {
       if (res.data.error) throw Error(res.data.error)
 
       const temp: ApiRes[] = []
       res.data.data.forEach(item => {
-        if (webList.value.some(i => (i.pid === item.pid && i.p === item.p))) return
+        if (webList.value.some(i => i.pid === item.pid && i.p === item.p)) {
+          return
+        }
         temp.push(item)
       })
       webList.value = [...webList.value, ...temp]
@@ -426,68 +397,116 @@ const getData = () => {
     })
 }
 
-const ready = ref(false)
+// 图片预览
+const imageShow = ref(false)
+const imageLoading = ref(false)
+const index = ref(0)
+let _index = 0
+
+const showImage = (key: number) => {
+  if (window.plus) {
+    imageLoading.value = false
+  }
+  index.value = key
+  _index = key
+  imageShow.value = true
+}
+
+const onClose = () => {
+  imageShow.value = false
+}
+
+const onChange = (newKey: number) => {
+  index.value = newKey
+  if (newKey === _index) return
+  if (_index !== -1) _index = -1
+
+  window.location.hash = String(newKey)
+}
+
+const saveImage = () => {
+  if (!window.plus) return
+  const dtask = window.plus.downloader.createDownload(
+    _list.value[index.value],
+    {},
+    (d: { filename: string }, status: number) => {
+      if (status === 200) {
+        window.plus.gallery.save(d.filename, () => {
+          window.plus.nativeUI.toast(`${d.filename}已保存`)
+        })
+      } else {
+        window.plus.nativeUI.toast(`${d.filename}下载失败`)
+      }
+      imageLoading.value = false
+    }
+  )
+  imageLoading.value = true
+  dtask.start()
+}
+
+// init
 onMounted(() => {
   getData()
 })
 getLoaclData()
 
+// ref
 defineExpose([dropdownItem, imageShow])
 </script>
 
-<style lang="stylus" scoped>
+<style lang="sass" scoped>
 .home
-  display flex
-  flex-direction column
+  display: flex
+  flex-direction: column
 
   .list
-    overflow-y auto
-    flex 1
-    background #ddd
+    overflow-y: auto
+    flex: 1
+    background: #ddd
 
     .info
-      margin 10px
+      margin: 10px
 
     .tags
-      display flex
-      flex-wrap wrap
-      justify-content flex-end
-      margin-left 10px
+      display: flex
+      flex-wrap: wrap
+      justify-content: flex-end
+      margin-left: 10px
 
       .tag
-        margin 2px 5px
+        margin: 2px 5px
 
   .save
-    z-index 9999
-    position fixed
-    bottom 15px
-    left calc(50% - 22.5px)
-    width 45px
-    height 45px
-    font-size 20px
+    z-index: 9999
+    position: fixed
+    bottom: 15px
+    left: calc(50% - 22.5px)
+    width: 45px
+    height: 45px
+    font-size: 20px
 
-@media screen and (max-width 600px)
+@media screen and (max-width: 600px)
   .info
-    width 80vw
+    width: 80vw
 
-@media screen and (min-width 600px)
+@media screen and (min-width: 600px)
   .info
-    width 480px
+    width: 480px
 </style>
 
-<style lang="stylus">
+<style lang="sass">
 .van-swipe-cell__right
-  overflow-y auto
+  overflow: hidden
 
 .cell-title
-  flex 0 0 50px !important
+  flex: 0 0 50px !important
 
 .van-field
-  padding 10px 0 !important
+  padding: 10px 0 !important
 
-@media screen and (min-width 600px)
+@media screen and (min-width: 600px)
   .van-dropdown-item--down
-    width 600px
-    left 50% !important
-    transform translateX(-50%)
+    width: 600px
+    left: 50% !important
+    transform: translateX(-50%)
 </style>

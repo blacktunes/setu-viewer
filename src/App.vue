@@ -13,20 +13,20 @@ const Home = ref()
 defineExpose([Home])
 </script>
 
-<style lang="stylus">
+<style lang="sass">
 body
-  background #ddd
+  background: #ddd
 
 .main
-  display flex
-  justify-content center
-  height 100vh
+  display: flex
+  justify-content: center
+  height: 100vh
 
-@media screen and (max-width 600px)
+@media screen and (max-width: 600px)
   .view
-    width 100vw
+    width: 100vw
 
-@media screen and (min-width 600px)
+@media screen and (min-width: 600px)
   .view
-    width 600px
+    width: 600px
 </style>

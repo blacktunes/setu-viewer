@@ -7,7 +7,7 @@ import '@vant/touch-emulator'
 
 const app = createApp(App)
   .use(Lazyload, {
-    preload: 4,
+    preload: 5,
     loading: require('@/assets/loading.jpg'),
     error: require('@/assets/error.jpg')
   })
