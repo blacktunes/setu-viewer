@@ -1,10 +1,10 @@
 {
     "@platforms" : [ "android", "iPhone", "iPad" ],
     "id" : "H530040EE", //应用的标识，创建应用时自动生成，勿手动修改 
-    "name" : "咸鱼色图", //应用名称，程序桌面图标名称 
+    "name" : "不卡啊.jpg", //应用名称，程序桌面图标名称 
     "version" : {
-        "name" : "0.2.0", //应用版本名称 
-        "code" : 0 //应用版本号 
+        "name" : "0.3.0", //应用版本名称 
+        "code" : 2 //应用版本号 
     },
     "description" : "那当然是看色图", //应用描述信息 
     "icons" : {
@@ -90,7 +90,8 @@
                 "password" : "", //Android应用打包使用密钥库中证书的密码 
                 "aliasname" : "", //Android应用打包使用密钥库中证书的别名
                 "permissions" : [ "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>" ],
-                "autoSdkPermissions" : false
+                "autoSdkPermissions" : false,
+                "abiFilters" : [ "arm64-v8a" ]
             },
             "orientation" : [ "portrait-primary" ], //应用支持的方向，portrait-primary：竖屏正方向；portrait-secondary：竖屏反方向；landscape-primary：横屏正方向；landscape-secondary：横屏反方向 
             "icons" : {
@@ -132,7 +133,7 @@
                 // 不配置Splash图片则显示应用图标和应用名称 
                 "android" : {},
                 "useOriginalMsgbox" : false,
-                "androidStyle" : "default"
+                "androidStyle" : "common"
             },
             // 不配置Splash图片则显示应用图标和应用名称
             "plugins" : {

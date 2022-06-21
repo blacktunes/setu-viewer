@@ -5,4 +5,6 @@ declare module '*.vue' {
   export default component
 }
 
-declare var plus: any
+interface Window {
+  plus: Plus
+}

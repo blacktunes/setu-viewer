@@ -8,47 +8,108 @@
           @open="open"
           @closed="closed"
         >
-          <van-cell center title="色色模式">
-            <template #right-icon>
-              <van-radio-group v-model="mode" direction="horizontal">
-                <van-radio :name="0">随机</van-radio>
-                <van-radio :name="3">收藏</van-radio>
-                <van-radio :name="1">UID</van-radio>
-                <van-radio :name="2">关键词</van-radio>
-              </van-radio-group>
-            </template>
-          </van-cell>
-          <van-cell center v-if="mode === 1">
-            <template #right-icon>
-              <van-field
-                v-model="UID"
-                clearable
-                type="number"
-                placeholder="UID"
-                @keydown.enter="onConfirm"
-              />
-            </template>
-          </van-cell>
-          <van-cell center v-if="mode === 2">
-            <template #right-icon>
-              <van-field
-                v-model="keyword"
-                clearable
-                placeholder="关键词"
-                @keydown.enter="onConfirm"
-              />
-            </template>
-          </van-cell>
-          <div style="padding: 10px 16px">
+          <van-cell-group inset title="显示设置">
+            <van-cell center title="多列">
+              <template #right-icon>
+                <van-switch
+                  v-model="multiColumn"
+                  size="24px"
+                  style="margin-right: 12px"
+                  @change="onMultiColumnChange"
+                />
+              </template>
+            </van-cell>
+            <van-cell center title="收藏">
+              <template #right-icon>
+                <van-switch
+                  v-model="collection"
+                  size="24px"
+                  style="margin-right: 12px"
+                  @change="onCollectionChange"
+                />
+              </template>
+            </van-cell>
+          </van-cell-group>
+          <van-cell-group inset title="色图设置" v-if="!collection">
+            <van-cell center title="数量">
+              <template #right-icon>
+                <van-slider
+                  v-model="num"
+                  min="10"
+                  style="width: 220px"
+                  @change="saveConfig"
+                >
+                  <template #button>
+                    <div class="custom-button">{{ num }}</div>
+                  </template>
+                </van-slider>
+              </template>
+            </van-cell>
+            <van-cell center title="R18">
+              <template #right-icon>
+                <van-radio-group
+                  v-model="R18"
+                  direction="horizontal"
+                  @change="saveConfig"
+                >
+                  <van-radio :name="0">没有</van-radio>
+                  <van-radio :name="1">全是</van-radio>
+                  <van-radio :name="2">随便吧</van-radio>
+                </van-radio-group>
+              </template>
+            </van-cell>
+            <van-cell center title="模式">
+              <template #right-icon>
+                <van-radio-group v-model="mode" direction="horizontal">
+                  <van-radio :name="0">随机</van-radio>
+                  <van-radio :name="1" style="padding-right: 5px">
+                    UID
+                  </van-radio>
+                  <van-radio :name="2">关键词</van-radio>
+                </van-radio-group>
+              </template>
+            </van-cell>
+            <van-cell center v-if="mode === 1">
+              <template #right-icon>
+                <van-field
+                  v-model="UID"
+                  clearable
+                  type="number"
+                  placeholder="UID"
+                  @keydown.enter="onConfirm"
+                />
+              </template>
+            </van-cell>
+            <van-cell center v-if="mode === 2">
+              <template #right-icon>
+                <van-field
+                  v-model="keyword"
+                  clearable
+                  placeholder="关键词"
+                  @keydown.enter="onConfirm"
+                />
+              </template>
+            </van-cell>
+          </van-cell-group>
+          <div class="btn-list" v-if="!collection">
             <van-button
+              class="refresh"
               type="primary"
+              icon="replay"
+              round
+              plain
+              @click="onRefresh"
+            />
+            <van-button
+              :disabled="canConfirm"
+              type="primary"
+              class="confirm"
               block
               round
-              @click="onConfirm"
-              :disabled="canConfirm"
               plain
+              @click="onConfirm"
             >
-              {{ btnText }}
+              开始色色
             </van-button>
           </div>
         </van-dropdown-item>
@@ -72,64 +133,97 @@
         image-size="300"
         style="height: 90%"
       />
-      <van-swipe-cell v-for="(img, index) in list" :key="index" :id="index">
-        <img
-          @click="showImage(index)"
-          style="width: 100%"
-          v-lazy="img.urls.small"
-          draggable="false"
-        />
-        <template #right>
-          <van-cell-group inset class="info">
-            <van-cell
-              title-class="cell-title"
-              title="author"
-              :value="img.author"
-              @click="search(1, img.uid)"
-            />
-            <van-cell
-              title-class="cell-title"
-              title="uid"
-              :value="img.uid"
-              @click="search(1, img.uid)"
-            />
-            <van-cell
-              title-class="cell-title"
-              title="title"
-              :value="img.title"
-              @click="search(2, img.title)"
-            />
-            <van-cell title-class="cell-title" title="pid" :value="img.pid" />
-            <van-cell title-class="cell-title" title="tags">
-              <template #right-icon>
-                <div class="tags">
-                  <van-tag
-                    class="tag"
-                    plain
-                    type="primary"
-                    v-for="(item, key) in img.tags"
-                    :key="`${index}-${key}`"
-                    @click="search(2, item)"
-                    >{{ item }}</van-tag
-                  >
-                </div>
-              </template>
-            </van-cell>
-            <van-cell style="justify-content: center">
-              <template #right-icon>
-                <van-button
-                  style="width: 40px; height: 40px"
-                  icon="like"
-                  type="danger"
-                  round
-                  :plain="checkLocalData(img)"
-                  @click.stop="setLoaclData(img)"
-                />
-              </template>
-            </van-cell>
-          </van-cell-group>
-        </template>
-      </van-swipe-cell>
+      <div class="other-list" v-if="multiColumn">
+        <transition-group name="van-fade">
+          <van-image
+            v-for="(img, index) in list"
+            :key="index"
+            :id="index"
+            :src="img.urls.thumb"
+            lazy-load
+            width="33%"
+            @click="showImage(index)"
+          >
+            <template #loading>
+              <div style="width: 100%">
+                <img style="width: 100%" src="@/assets/loading.jpg" />
+              </div>
+            </template>
+            <template #error>
+              <div style="width: 100%">
+                <img style="width: 100%" src="@/assets/error.jpg" />
+              </div>
+            </template>
+          </van-image>
+        </transition-group>
+      </div>
+      <template v-else>
+        <van-swipe-cell v-for="(img, index) in list" :key="index" :id="index">
+          <img
+            @click="showImage(index)"
+            style="width: 100%"
+            v-lazy="img.urls.small"
+            draggable="false"
+          />
+          <template #right>
+            <van-cell-group inset class="info">
+              <van-cell
+                v-if="img.r18"
+                size="large"
+                title="R18"
+                title-class="r18-tip"
+                style="background: var(--van-tag-warning-color)"
+              />
+              <van-cell
+                title-class="cell-title"
+                title="author"
+                :value="img.author"
+                @click="search(1, img.uid)"
+              />
+              <van-cell
+                title-class="cell-title"
+                title="uid"
+                :value="img.uid"
+                @click="search(1, img.uid)"
+              />
+              <van-cell
+                title-class="cell-title"
+                title="title"
+                :value="img.title"
+                @click="search(2, img.title)"
+              />
+              <van-cell title-class="cell-title" title="pid" :value="img.pid" />
+              <van-cell title-class="cell-title" title="tags">
+                <template #right-icon>
+                  <div class="tags">
+                    <van-tag
+                      class="tag"
+                      plain
+                      type="primary"
+                      v-for="(item, key) in img.tags"
+                      :key="`${index}-${key}`"
+                      @click="search(2, item)"
+                      >{{ item }}</van-tag
+                    >
+                  </div>
+                </template>
+              </van-cell>
+              <van-cell style="justify-content: center">
+                <template #right-icon>
+                  <van-button
+                    style="width: 40px; height: 40px"
+                    icon="like"
+                    type="danger"
+                    round
+                    :plain="checkLocalData(img)"
+                    @click.stop="setLoaclData(img)"
+                  />
+                </template>
+              </van-cell>
+            </van-cell-group>
+          </template>
+        </van-swipe-cell>
+      </template>
     </van-list>
     <van-image-preview
       v-model:show="imageShow"
@@ -160,8 +254,22 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { ImagePreview, DropdownItemInstance } from 'vant'
+import { Toast, ImagePreview, DropdownItemInstance } from 'vant'
 import axios from 'axios'
+
+type Size = 'mini' | 'thumb' | 'small' | 'regular' | 'original'
+
+type ReqQuery = Partial<{
+  r18: 0 | 1 | 2
+  num: number
+  uid: number | number[]
+  keyword: string
+  tag: string[]
+  size: Size[]
+  proxy: string
+  dateAfter: number
+  dateBefore: number
+}>
 
 interface ApiRes {
   pid: number
@@ -176,34 +284,76 @@ interface ApiRes {
   ext: string
   uploadDate: number
   urls: {
-    small: string
-    regular: string
+    [key in Size]: string
   }
 }
 
 const VanImagePreview = ImagePreview.Component
 
-// const api = 'https://feizhouxianyu.cn/api/setu?k=xianyu'
-// const api = 'http://127.0.0.1:8900/api/setu?k=xianyu'
+// API
 const api =
-  'https://api.lolicon.app/setu/v2?proxy=i.pixiv.re&size=small&size=regular&num=20'
+  process.env.NODE_ENV === 'development'
+    ? 'http://127.0.0.1:8900/api/setu'
+    : 'https://api.lolicon.app/setu/v2'
+
+const query: ReqQuery = {
+  proxy: 'i.pixiv.re',
+  size: ['thumb', 'small', 'regular']
+}
 
 // 菜单设置
+const num = ref(20)
+const R18 = ref(0)
+
+const multiColumn = ref(false)
+const collection = ref(false)
+
+const onMultiColumnChange = () => {
+  if (dropdownItem.value) {
+    dropdownItem.value.toggle()
+  }
+  if (multiColumn.value) {
+    if (num.value < 30) {
+      num.value = 30
+    }
+  } else {
+    if (!collection.value) {
+      webList.value.splice(30)
+    }
+  }
+  saveConfig()
+}
+
+const onCollectionChange = () => {
+  if (collection.value) {
+    if (dropdownItem.value) {
+      dropdownItem.value.toggle()
+    }
+    finished.value = true
+    local.value = true
+  } else {
+    local.value = false
+    nextTick(() => {
+      finished.value = false
+    })
+  }
+}
+
 const mode = ref(0)
 const UID = ref()
 const keyword = ref('')
 
 // 下拉菜单
 const title = computed(() => {
+  if (collection.value) {
+    return '收藏'
+  }
   if (mode.value === 1) {
     const uid = data.open ? data.UID : UID.value
     return uid ? `UID: ${uid}` : 'UID'
   }
   if (mode.value === 2) {
     return (data.open ? data.keyword : keyword.value) || '关键词'
-  }
-  if (mode.value === 3) {
-    return '收藏'
   }
   return '随机色图'
 })
@@ -212,9 +362,10 @@ const data = reactive({
   open: false,
   click: false,
   mode: 0,
-  _mode: 0,
   UID: 0,
-  keyword: ''
+  keyword: '',
+  num: 20,
+  R18: 0
 })
 
 const open = () => {
@@ -223,10 +374,8 @@ const open = () => {
   data.mode = mode.value
   data.UID = UID.value
   data.keyword = keyword.value
-
-  if (mode.value !== 3) {
-    data._mode = mode.value
-  }
+  data.num = num.value
+  data.R18 = R18.value
 }
 
 const closed = () => {
@@ -239,18 +388,20 @@ const closed = () => {
 
 const dropdownItem = ref<DropdownItemInstance>()
 
+const onRefresh = () => {
+  if (dropdownItem.value) {
+    dropdownItem.value.toggle()
+  }
+  webList.value = []
+  getData()
+}
+
 const onConfirm = () => {
   if (canConfirm.value) return
 
   data.click = true
   if (dropdownItem.value) {
     dropdownItem.value.toggle()
-  }
-  if (mode.value === 3) {
-    getLoaclData()
-    finished.value = true
-    local.value = true
-    return
   }
   finished.value = false
   local.value = false
@@ -271,7 +422,6 @@ const onConfirm = () => {
 
 const shouldGetData = computed(
   () =>
-    (data.mode === 3 && mode.value === data._mode) ||
     (mode.value === 2 && keyword.value === data.keyword) ||
     (mode.value === 1 && UID.value === data.UID)
 )
@@ -280,20 +430,15 @@ const canConfirm = computed(() => {
   if (
     (mode.value === 1 && (UID.value === data.UID || !UID.value)) ||
     (mode.value === 2 && (keyword.value === data.keyword || !keyword.value)) ||
-    (mode.value === 3 && data.mode === 3) ||
     (mode.value === 0 && data.mode === 0)
   ) {
-    if (data.mode === 3 && mode.value === data._mode) return false
+    if (R18.value !== data.R18 || num.value !== data.num) {
+      return false
+    }
     return true
   } else {
     return false
   }
-})
-
-const btnText = computed(() => {
-  if (!canConfirm.value && shouldGetData.value) return '继续色色'
-  if (mode.value === 3) return '我的色图'
-  return '开始色色'
 })
 
 const search = (type: 1 | 2 | 3, key: number | string) => {
@@ -345,13 +490,13 @@ const setLoaclData = (item: ApiRes) => {
   } else {
     loaclList.value.push(item)
   }
-  localStorage.setItem('collection', JSON.stringify(loaclList.value))
+  localStorage.setItem('setu-data', JSON.stringify(loaclList.value))
 }
 
 const getLoaclData = () => {
   try {
     const temp2: ApiRes[] = JSON.parse(
-      localStorage.getItem('collection') || '[]'
+      localStorage.getItem('setu-data') || '[]'
     )
     loaclList.value = temp2
   } catch {
@@ -363,15 +508,19 @@ const getData = () => {
   if (error.value) return
 
   finished.value = false
-  let _api = api
   loading.value = true
+  const data = {
+    ...query,
+    r18: R18.value,
+    num: num.value
+  }
   if (mode.value === 1) {
-    _api += `&uid=${UID.value}`
+    data.uid = UID.value
   } else if (mode.value === 2) {
-    _api += `&keyword=${keyword.value}`
+    data.keyword = keyword.value
   }
   axios
-    .get(_api)
+    .post(api, data)
     .then((res: { data: { error?: string; data: ApiRes[] } }) => {
       if (res.data.error) throw Error(res.data.error)
 
@@ -389,6 +538,10 @@ const getData = () => {
       loading.value = false
       error.value = true
       console.error(err)
+      Toast({
+        message: err.message || '我网呢?',
+        icon: 'cross'
+      })
     })
     .finally(() => {
       setTimeout(() => {
@@ -429,13 +582,19 @@ const saveImage = () => {
   const dtask = window.plus.downloader.createDownload(
     _list.value[index.value],
     {},
-    (d: { filename: string }, status: number) => {
+    (d, status) => {
       if (status === 200) {
-        window.plus.gallery.save(d.filename, () => {
-          window.plus.nativeUI.toast(`${d.filename}已保存`)
+        window.plus.gallery.save(d.filename || `${Date.now()}.jpg`, () => {
+          Toast({
+            message: `${d.filename}已保存`,
+            position: 'bottom'
+          })
         })
       } else {
-        window.plus.nativeUI.toast(`${d.filename}下载失败`)
+        Toast({
+          message: `${d.filename}下载失败`,
+          position: 'bottom'
+        })
       }
       imageLoading.value = false
     }
@@ -444,11 +603,26 @@ const saveImage = () => {
   dtask.start()
 }
 
+const saveConfig = () => {
+  const config = {
+    multiColumn: multiColumn.value,
+    num: num.value,
+    R18: R18.value
+  }
+  localStorage.setItem('setu-config', JSON.stringify(config))
+}
+
 // init
 onMounted(() => {
   getData()
 })
 getLoaclData()
+try {
+  const config = JSON.parse(localStorage.getItem('setu-config') || '{}')
+  multiColumn.value = config.multiColumn ?? false
+  num.value = config.num ?? 20
+  R18.value = config.R18 ?? 0
+} catch {}
 
 // ref
 defineExpose([dropdownItem, imageShow])
@@ -458,6 +632,12 @@ defineExpose([dropdownItem, imageShow])
 .home
   display: flex
   flex-direction: column
+
+  .other-list
+    display: flex
+    flex-wrap: wrap
+    justify-content: flex-start
+    margin-left: 1%
 
   .list
     overflow-y: auto
@@ -485,6 +665,19 @@ defineExpose([dropdownItem, imageShow])
     height: 45px
     font-size: 20px
 
+.btn-list
+  display: flex
+  align-items: center
+  padding: 15px 15px 0 15px
+
+  .refresh
+    width: 40px
+    height: 40px
+    margin-right: 10px
+
+  .confirm
+    height: 40px
+
 @media screen and (max-width: 600px)
   .info
     width: 80vw
@@ -496,13 +689,31 @@ defineExpose([dropdownItem, imageShow])
 
 <style lang="sass">
 .van-swipe-cell__right
-  overflow: hidden
+  overflow: auto
+
+.van-field
+  padding: 10px 0 !important
+
+.van-dropdown-item__content
+  background: #eee !important
+  padding-bottom: 16px
+
+.r18-tip
+  color: #fff
+  text-align: center
+  font-weight: bold
 
 .cell-title
   flex: 0 0 50px !important
 
-.van-field
-  padding: 10px 0 !important
+.custom-button
+  width: 26px
+  color: #fff
+  font-size: 10px
+  line-height: 18px
+  text-align: center
+  background-color: var(--van-primary-color)
+  border-radius: 100px
 
 @media screen and (min-width: 600px)
   .van-dropdown-item--down

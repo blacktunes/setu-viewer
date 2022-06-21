@@ -16,6 +16,7 @@ defineExpose([Home])
 <style lang="sass">
 body
   background: #ddd
+  --van-toast-position-bottom-distance: 10% !important
 
 .main
   display: flex

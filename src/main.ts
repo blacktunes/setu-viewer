@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createApp } from 'vue'
 import App from './App.vue'
-import { Lazyload } from 'vant'
+import { Lazyload, Toast } from 'vant'
 import 'vant/lib/index.css'
 import '@vant/touch-emulator'
 
@@ -25,7 +25,10 @@ const plusReady = () => {
     } else {
       if (!firstBack) {
         firstBack = new Date().getTime()
-        window.plus.nativeUI.toast('再次返回退出应用')
+        Toast({
+          message: '再次返回停止色色',
+          position: 'bottom'
+        })
         setTimeout(() => {
           firstBack = null
         }, 2000)
