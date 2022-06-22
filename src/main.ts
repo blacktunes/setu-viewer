@@ -4,14 +4,7 @@ import App from './App.vue'
 import { Lazyload, Toast } from 'vant'
 import 'vant/lib/index.css'
 import '@vant/touch-emulator'
-
-const app = createApp(App)
-  .use(Lazyload, {
-    preload: 5,
-    loading: require('@/assets/loading.jpg'),
-    error: require('@/assets/error.jpg')
-  })
-  .mount('#app')
+import '@/assets/style.sass'
 
 let firstBack: number | null = null
 const plusReady = () => {
@@ -46,3 +39,11 @@ if (window.plus) {
 } else {
   document.addEventListener('plusready', plusReady, false)
 }
+
+const app = createApp(App)
+  .use(Lazyload, {
+    preload: 5,
+    loading: require('@/assets/loading.jpg'),
+    error: require('@/assets/error.jpg')
+  })
+  .mount('#app')

@@ -1,5 +1,8 @@
 <template>
   <div class="home">
+    <van-tag class="num-tag" plain round v-if="numTag > 0">
+      {{ numTag }}
+    </van-tag>
     <van-sticky style="margin-bottom: 5px">
       <van-dropdown-menu>
         <van-dropdown-item
@@ -42,7 +45,7 @@
                 />
               </template>
             </van-cell>
-            <van-cell center title="收藏">
+            <van-cell center :title="collectionName">
               <template #right-icon>
                 <van-switch
                   v-model="collection"
@@ -141,9 +144,10 @@
       :immediate-check="false"
       loading-text="正在色色..."
       error-text="要不点这重试?"
-      finished-text=""
       offset="1500"
+      :finished-text="finishedText"
       @load="onLoad"
+      ref="listRef"
     >
       <van-empty
         v-if="(list.length < 1 && loading) || list.length < 1"
@@ -244,7 +248,7 @@
                   <van-button
                     style="width: 40px; height: 40px"
                     icon="like"
-                    type="danger"
+                    type="primary"
                     round
                     :plain="checkLocalData(img)"
                     @click.stop="setLoaclData(img)"
@@ -265,13 +269,18 @@
       @close="onClose"
       @change="onChange"
     >
+      <template v-slot:index>
+        <div class="index">
+          <div class="index-title van-ellipsis">{{ list[index].title }}</div>
+        </div>
+      </template>
       <template #cover>
         <transition name="van-slide-up">
           <van-button
-            v-if="imageShow"
+            v-if="imageShow && isApp"
             class="save"
             icon="down"
-            type="danger"
+            type="primary"
             plain
             round
             :loading="imageLoading"
@@ -285,7 +294,7 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { Toast, ImagePreview, DropdownItemInstance } from 'vant'
+import { Toast, ImagePreview, DropdownItemInstance, ListInstance } from 'vant'
 import axios from 'axios'
 
 type Size = 'mini' | 'thumb' | 'small' | 'regular' | 'original'
@@ -374,6 +383,9 @@ const onMultiColumnChange = () => {
 }
 
 const onCollectionChange = () => {
+  if (listRef.value) {
+    listRef.value.$el.scrollTop = 0
+  }
   if (collection.value) {
     if (dropdownItem.value) {
       dropdownItem.value.toggle()
@@ -405,6 +417,22 @@ const title = computed(() => {
     return (data.open ? data.keyword : keyword.value) || '关键词'
   }
   return '随机色图'
+})
+
+const collectionName = computed(() => {
+  let temp = '收藏'
+  if (loaclList.value.length > 0) {
+    temp += ` (${loaclList.value.length})`
+  }
+  return temp
+})
+
+const numTag = computed(() => {
+  if (collection.value) {
+    return loaclList.value.length
+  } else {
+    return webList.value.length
+  }
 })
 
 const data = reactive({
@@ -509,9 +537,16 @@ const search = (type: 1 | 2 | 3, key: number | string) => {
   }
   webList.value = []
   getData()
+  collection.value = false
+  local.value = false
+  nextTick(() => {
+    finished.value = false
+  })
 }
 
 // 消息列表
+const listRef = ref<ListInstance>()
+
 const local = ref(false)
 const webList = ref<ApiRes[]>([])
 const loaclList = ref<ApiRes[]>([])
@@ -525,8 +560,10 @@ const onLoad = () => {
   getData()
 }
 
+const finishedText = computed(() => (collection.value ? '' : '没有色色了'))
+
 const emptyImg = computed(() => {
-  if (error.value) return require('@/assets/loading.jpg')
+  if (error.value) return require('@/assets/serve-error.jpg')
   if (loading.value) return require('@/assets/ready.jpg')
   if (list.value.length < 1) return require('@/assets/empty.jpg')
   return require('@/assets/loading.jpg')
@@ -613,6 +650,8 @@ const imageLoading = ref(false)
 const index = ref(0)
 let _index = 0
 
+const isApp = ref(false)
+
 const showImage = (key: number) => {
   if (window.plus) {
     imageLoading.value = false
@@ -671,6 +710,7 @@ const regular = ref(new Set<string>())
 const regularNum = ref(0)
 
 const onSmallLoad = (pid: number, p: number) => {
+  if (collection.value) return
   ++smallNum.value
   const key = `${pid}-${p}`
   if (small.value.has(key)) return
@@ -679,6 +719,7 @@ const onSmallLoad = (pid: number, p: number) => {
 }
 
 const onRegularLoad = (pid: number, p: number) => {
+  if (collection.value) return
   ++regularNum.value
   const key = `${pid}-${p}`
   if (regular.value.has(key)) return
@@ -714,6 +755,7 @@ const getHistory = () => {
 
 // init
 onMounted(() => {
+  if (window.plus) isApp.value = true
   getData()
 })
 getLoaclData()
@@ -728,6 +770,12 @@ defineExpose([dropdownItem, imageShow])
 .home
   display: flex
   flex-direction: column
+
+  .num-tag
+    position: fixed
+    top: 15px
+    right: 10px
+    z-index: 9999
 
   .other-list
     display: flex
@@ -778,9 +826,23 @@ defineExpose([dropdownItem, imageShow])
     width: 40px
     height: 40px
     margin-right: 10px
+    font-size: 20px
+    transform: rotateZ(90deg)
 
   .confirm
+    font-size: 20px
     height: 40px
+
+.index
+  text-align: center
+  padding: 1px 5px
+  border-radius: 5px
+  background: rgba(0, 0, 0, 0.1)
+
+  .index-title
+    max-width: 80vw
+    margin: auto
+    font-size: 12px
 
 @media screen and (max-width: 600px)
   .info
@@ -801,6 +863,8 @@ defineExpose([dropdownItem, imageShow])
 .van-dropdown-item__content
   background: #eee !important
   padding-bottom: 16px
+  border-bottom-left-radius: 10px
+  border-bottom-right-radius: 10px
 
 .r18-tip
   color: #fff
