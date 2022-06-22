@@ -8,6 +8,29 @@
           @open="open"
           @closed="closed"
         >
+          <van-cell-group inset style="margin-top: 15px">
+            <van-collapse v-model="activeNames">
+              <van-collapse-item title="统计" name="1">
+                <table border="0" cellspacing="0" class="table">
+                  <tr>
+                    <th class="van-hairline--bottom van-hairline--right"></th>
+                    <th class="van-hairline--bottom">小图</th>
+                    <th class="van-hairline--bottom">大图</th>
+                  </tr>
+                  <tr>
+                    <th class="van-hairline--right first-row">图片数</th>
+                    <td>{{ small.size }}</td>
+                    <td>{{ regular.size }}</td>
+                  </tr>
+                  <tr>
+                    <th class="van-hairline--right first-row">浏览数</th>
+                    <td>{{ smallNum }}</td>
+                    <td>{{ regularNum }}</td>
+                  </tr>
+                </table>
+              </van-collapse-item>
+            </van-collapse>
+          </van-cell-group>
           <van-cell-group inset title="显示设置">
             <van-cell center title="多列">
               <template #right-icon>
@@ -35,9 +58,8 @@
               <template #right-icon>
                 <van-slider
                   v-model="num"
-                  min="10"
-                  style="width: 220px"
-                  @change="saveConfig"
+                  :min="multiColumn ? 30 : 10"
+                  style="width: 187px; margin-right: 20px"
                 >
                   <template #button>
                     <div class="custom-button">{{ num }}</div>
@@ -47,11 +69,7 @@
             </van-cell>
             <van-cell center title="R18">
               <template #right-icon>
-                <van-radio-group
-                  v-model="R18"
-                  direction="horizontal"
-                  @change="saveConfig"
-                >
+                <van-radio-group v-model="R18" direction="horizontal">
                   <van-radio :name="0">没有</van-radio>
                   <van-radio :name="1">全是</van-radio>
                   <van-radio :name="2">随便吧</van-radio>
@@ -143,6 +161,7 @@
             lazy-load
             width="33%"
             @click="showImage(index)"
+            @load="onSmallLoad(img.pid, img.p)"
           >
             <template #loading>
               <div style="width: 100%">
@@ -159,12 +178,24 @@
       </div>
       <template v-else>
         <van-swipe-cell v-for="(img, index) in list" :key="index" :id="index">
-          <img
+          <van-image
+            width="100%"
+            lazy-load
+            :src="img.urls.small"
             @click="showImage(index)"
-            style="width: 100%"
-            v-lazy="img.urls.small"
-            draggable="false"
-          />
+            @load="onSmallLoad(img.pid, img.p)"
+          >
+            <template #loading>
+              <div style="width: 100%">
+                <img style="width: 100%" src="@/assets/loading.jpg" />
+              </div>
+            </template>
+            <template #error>
+              <div style="width: 100%">
+                <img style="width: 100%" src="@/assets/error.jpg" />
+              </div>
+            </template>
+          </van-image>
           <template #right>
             <van-cell-group inset class="info">
               <van-cell
@@ -308,6 +339,24 @@ const R18 = ref(0)
 const multiColumn = ref(false)
 const collection = ref(false)
 
+const saveConfig = () => {
+  const config = {
+    multiColumn: multiColumn.value,
+    num: num.value,
+    R18: R18.value
+  }
+  localStorage.setItem('setu-config', JSON.stringify(config))
+}
+
+const getConfig = () => {
+  try {
+    const config = JSON.parse(localStorage.getItem('setu-config') || '{}')
+    multiColumn.value = config.multiColumn ?? false
+    num.value = config.num ?? 20
+    R18.value = config.R18 ?? 0
+  } catch {}
+}
+
 const onMultiColumnChange = () => {
   if (dropdownItem.value) {
     dropdownItem.value.toggle()
@@ -380,20 +429,25 @@ const open = () => {
 
 const closed = () => {
   data.open = false
+  // activeNames.value = []
   if (data.click) return
   mode.value = data.mode
   UID.value = data.UID
   keyword.value = data.keyword
+  num.value = data.num
+  R18.value = data.R18
 }
 
 const dropdownItem = ref<DropdownItemInstance>()
 
 const onRefresh = () => {
+  data.click = true
   if (dropdownItem.value) {
     dropdownItem.value.toggle()
   }
   webList.value = []
   getData()
+  saveConfig()
 }
 
 const onConfirm = () => {
@@ -409,6 +463,7 @@ const onConfirm = () => {
   if (mode.value !== 1) UID.value = null
   if (mode.value !== 2) keyword.value = ''
 
+  saveConfig()
   if (shouldGetData.value) {
     finished.value = true
     nextTick(() => {
@@ -422,8 +477,10 @@ const onConfirm = () => {
 
 const shouldGetData = computed(
   () =>
-    (mode.value === 2 && keyword.value === data.keyword) ||
-    (mode.value === 1 && UID.value === data.UID)
+    (R18.value !== data.R18 || num.value !== data.num) &&
+    ((mode.value === 2 && keyword.value === data.keyword) ||
+      (mode.value === 1 && UID.value === data.UID) ||
+      mode.value === 0)
 )
 
 const canConfirm = computed(() => {
@@ -563,6 +620,7 @@ const showImage = (key: number) => {
   index.value = key
   _index = key
   imageShow.value = true
+  onRegularLoad(list.value[index.value].pid, list.value[index.value].p)
 }
 
 const onClose = () => {
@@ -571,6 +629,7 @@ const onClose = () => {
 
 const onChange = (newKey: number) => {
   index.value = newKey
+  onRegularLoad(list.value[index.value].pid, list.value[index.value].p)
   if (newKey === _index) return
   if (_index !== -1) _index = -1
 
@@ -603,13 +662,54 @@ const saveImage = () => {
   dtask.start()
 }
 
-const saveConfig = () => {
-  const config = {
-    multiColumn: multiColumn.value,
-    num: num.value,
-    R18: R18.value
+// 统计
+const activeNames = ref([])
+
+const small = ref(new Set<string>())
+const smallNum = ref(0)
+const regular = ref(new Set<string>())
+const regularNum = ref(0)
+
+const onSmallLoad = (pid: number, p: number) => {
+  ++smallNum.value
+  const key = `${pid}-${p}`
+  if (small.value.has(key)) return
+  small.value.add(key)
+  saveHistory()
+}
+
+const onRegularLoad = (pid: number, p: number) => {
+  ++regularNum.value
+  const key = `${pid}-${p}`
+  if (regular.value.has(key)) return
+  regular.value.add(key)
+  saveHistory()
+}
+
+const saveHistory = () => {
+  const history = {
+    small: [...small.value],
+    smallNum: smallNum.value,
+    regular: [...regular.value],
+    regularNum: regularNum.value
   }
-  localStorage.setItem('setu-config', JSON.stringify(config))
+  localStorage.setItem('setu-history', JSON.stringify(history))
+}
+
+const getHistory = () => {
+  try {
+    let history: {
+      small?: string[]
+      smallNum?: number
+      regular?: string[]
+      regularNum?: number
+    } = {}
+    history = JSON.parse(localStorage.getItem('setu-history') || '{}')
+    small.value = new Set<string>(history.small || [])
+    smallNum.value = history.smallNum || 0
+    regular.value = new Set<string>(history.regular || [])
+    regularNum.value = history.regularNum || 0
+  } catch {}
 }
 
 // init
@@ -617,12 +717,8 @@ onMounted(() => {
   getData()
 })
 getLoaclData()
-try {
-  const config = JSON.parse(localStorage.getItem('setu-config') || '{}')
-  multiColumn.value = config.multiColumn ?? false
-  num.value = config.num ?? 20
-  R18.value = config.R18 ?? 0
-} catch {}
+getConfig()
+getHistory()
 
 // ref
 defineExpose([dropdownItem, imageShow])
@@ -664,6 +760,14 @@ defineExpose([dropdownItem, imageShow])
     width: 45px
     height: 45px
     font-size: 20px
+
+.table
+  width: 100%
+  text-align: right
+
+  .first-row
+    width: 60px
+    text-align: left
 
 .btn-list
   display: flex
