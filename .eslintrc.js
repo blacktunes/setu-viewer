@@ -17,6 +17,8 @@ module.exports = {
   },
   globals: {
     plus: 'readonly',
-    defineExpose: 'readonly'
+    defineExpose: 'readonly',
+    defineProps: 'readonly',
+    defineEmits: 'readonly'
   }
 }

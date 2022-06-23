@@ -1,6 +1,6 @@
 <template>
   <div class="home">
-    <van-tag class="num-tag" plain round v-if="numTag > 0">
+    <van-tag class="num-tag" type="primary" plain round v-if="numTag > 0">
       {{ numTag }}
     </van-tag>
     <van-sticky style="margin-bottom: 5px">
@@ -165,8 +165,12 @@
             lazy-load
             width="33%"
             @click="showImage(index)"
-            @load="onSmallLoad(img.pid, img.p)"
+            @load="onSmallLoad(img.pid, img.p, index)"
           >
+            <div
+              class="collection"
+              v-if="!collection && !checkLocalData(img)"
+            ></div>
             <template #loading>
               <div style="width: 100%">
                 <img style="width: 100%" src="@/assets/loading.jpg" />
@@ -186,9 +190,14 @@
             width="100%"
             lazy-load
             :src="img.urls.small"
+            :class="{viewed: img.viewed}"
             @click="showImage(index)"
-            @load="onSmallLoad(img.pid, img.p)"
+            @load="onSmallLoad(img.pid, img.p, index)"
           >
+            <div
+              class="collection"
+              v-if="!collection && !checkLocalData(img)"
+            ></div>
             <template #loading>
               <div style="width: 100%">
                 <img style="width: 100%" src="@/assets/loading.jpg" />
@@ -201,61 +210,13 @@
             </template>
           </van-image>
           <template #right>
-            <van-cell-group inset class="info">
-              <van-cell
-                v-if="img.r18"
-                size="large"
-                title="R18"
-                title-class="r18-tip"
-                style="background: var(--van-tag-warning-color)"
-              />
-              <van-cell
-                title-class="cell-title"
-                title="author"
-                :value="img.author"
-                @click="search(1, img.uid)"
-              />
-              <van-cell
-                title-class="cell-title"
-                title="uid"
-                :value="img.uid"
-                @click="search(1, img.uid)"
-              />
-              <van-cell
-                title-class="cell-title"
-                title="title"
-                :value="img.title"
-                @click="search(2, img.title)"
-              />
-              <van-cell title-class="cell-title" title="pid" :value="img.pid" />
-              <van-cell title-class="cell-title" title="tags">
-                <template #right-icon>
-                  <div class="tags">
-                    <van-tag
-                      class="tag"
-                      plain
-                      type="primary"
-                      v-for="(item, key) in img.tags"
-                      :key="`${index}-${key}`"
-                      @click="search(2, item)"
-                      >{{ item }}</van-tag
-                    >
-                  </div>
-                </template>
-              </van-cell>
-              <van-cell style="justify-content: center">
-                <template #right-icon>
-                  <van-button
-                    style="width: 40px; height: 40px"
-                    icon="like"
-                    type="primary"
-                    round
-                    :plain="checkLocalData(img)"
-                    @click.stop="setLoaclData(img)"
-                  />
-                </template>
-              </van-cell>
-            </van-cell-group>
+            <InfoBox
+              :index="index"
+              :img="img"
+              :like="checkLocalData(img)"
+              @search="search"
+              @setLoaclData="setLoaclData(img)"
+            />
           </template>
         </van-swipe-cell>
       </template>
@@ -266,12 +227,12 @@
       :start-position="index"
       :loop="false"
       :close-on-popstate="false"
-      @close="onClose"
+      @closed="onSearch(false)"
       @change="onChange"
     >
       <template v-slot:index>
-        <div class="index">
-          <div class="index-title van-ellipsis">{{ list[index].title }}</div>
+        <div class="index" @click="showInfo">
+          <div class="index-title van-ellipsis">{{ list?.[index]?.title }}</div>
         </div>
       </template>
       <template #cover>
@@ -289,44 +250,27 @@
         </transition>
       </template>
     </van-image-preview>
+    <van-action-sheet v-model:show="previewInfo" @closed="onSearch(true)">
+      <InfoBox
+        v-if="!searchEnd"
+        style="margin: 10px auto"
+        :index="-1"
+        :img="list?.[index]"
+        :like="checkLocalData(list?.[index])"
+        @search="search"
+        @setLoaclData="setLoaclData(list?.[index])"
+      />
+    </van-action-sheet>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { Toast, ImagePreview, DropdownItemInstance, ListInstance } from 'vant'
+import { imageShow, previewInfo, isApp } from '@/global'
+import { ReqQuery, ApiRes } from '@/type'
 import axios from 'axios'
-
-type Size = 'mini' | 'thumb' | 'small' | 'regular' | 'original'
-
-type ReqQuery = Partial<{
-  r18: 0 | 1 | 2
-  num: number
-  uid: number | number[]
-  keyword: string
-  tag: string[]
-  size: Size[]
-  proxy: string
-  dateAfter: number
-  dateBefore: number
-}>
-
-interface ApiRes {
-  pid: number
-  p: number
-  uid: number
-  title: string
-  author: string
-  r18: boolean
-  width: number
-  height: number
-  tags: string[]
-  ext: string
-  uploadDate: number
-  urls: {
-    [key in Size]: string
-  }
-}
+import InfoBox from '@/components/InfoBox.vue'
 
 const VanImagePreview = ImagePreview.Component
 
@@ -367,9 +311,6 @@ const getConfig = () => {
 }
 
 const onMultiColumnChange = () => {
-  if (dropdownItem.value) {
-    dropdownItem.value.toggle()
-  }
   if (multiColumn.value) {
     if (num.value < 30) {
       num.value = 30
@@ -387,9 +328,6 @@ const onCollectionChange = () => {
     listRef.value.$el.scrollTop = 0
   }
   if (collection.value) {
-    if (dropdownItem.value) {
-      dropdownItem.value.toggle()
-    }
     finished.value = true
     local.value = true
   } else {
@@ -526,6 +464,23 @@ const canConfirm = computed(() => {
   }
 })
 
+let isSearch = false
+let searchFlag = 0
+const searchEnd = ref(false)
+
+const onSearch = (flag: boolean) => {
+  if (flag) {
+    searchEnd.value = true
+  }
+  if (isSearch) {
+    if (++searchFlag >= 2) {
+      isSearch = false
+      searchFlag = 0
+      _search()
+    }
+  }
+}
+
 const search = (type: 1 | 2 | 3, key: number | string) => {
   if (type === 1) {
     mode.value = 1
@@ -535,6 +490,18 @@ const search = (type: 1 | 2 | 3, key: number | string) => {
     mode.value = 2
     keyword.value = key as string
   }
+
+  if (previewInfo.value) {
+    isSearch = true
+    imageShow.value = false
+    previewInfo.value = false
+    return
+  }
+
+  _search()
+}
+
+const _search = () => {
   webList.value = []
   getData()
   collection.value = false
@@ -570,6 +537,7 @@ const emptyImg = computed(() => {
 })
 
 const checkLocalData = (item: ApiRes) => {
+  if (!item) return false
   return !loaclList.value.some(
     _item => _item.pid === item.pid && _item.p === item.p
   )
@@ -582,7 +550,7 @@ const setLoaclData = (item: ApiRes) => {
   if (loaclIndex !== -1) {
     loaclList.value.splice(loaclIndex, 1)
   } else {
-    loaclList.value.push(item)
+    loaclList.value.unshift(item)
   }
   localStorage.setItem('setu-data', JSON.stringify(loaclList.value))
 }
@@ -645,12 +613,14 @@ const getData = () => {
 }
 
 // 图片预览
-const imageShow = ref(false)
 const imageLoading = ref(false)
 const index = ref(0)
 let _index = 0
 
-const isApp = ref(false)
+const showInfo = () => {
+  searchEnd.value = false
+  previewInfo.value = true
+}
 
 const showImage = (key: number) => {
   if (window.plus) {
@@ -659,16 +629,20 @@ const showImage = (key: number) => {
   index.value = key
   _index = key
   imageShow.value = true
-  onRegularLoad(list.value[index.value].pid, list.value[index.value].p)
-}
-
-const onClose = () => {
-  imageShow.value = false
+  onRegularLoad(
+    list.value[index.value].pid,
+    list.value[index.value].p,
+    index.value
+  )
 }
 
 const onChange = (newKey: number) => {
   index.value = newKey
-  onRegularLoad(list.value[index.value].pid, list.value[index.value].p)
+  onRegularLoad(
+    list.value[index.value].pid,
+    list.value[index.value].p,
+    index.value
+  )
   if (newKey === _index) return
   if (_index !== -1) _index = -1
 
@@ -709,17 +683,21 @@ const smallNum = ref(0)
 const regular = ref(new Set<string>())
 const regularNum = ref(0)
 
-const onSmallLoad = (pid: number, p: number) => {
+const onSmallLoad = (pid: number, p: number, i: number) => {
   if (collection.value) return
   ++smallNum.value
   const key = `${pid}-${p}`
-  if (small.value.has(key)) return
+  if (small.value.has(key)) {
+    list.value[i].viewed = true
+    return
+  }
   small.value.add(key)
   saveHistory()
 }
 
-const onRegularLoad = (pid: number, p: number) => {
+const onRegularLoad = (pid: number, p: number, i: number) => {
   if (collection.value) return
+  list.value[i].viewed = true
   ++regularNum.value
   const key = `${pid}-${p}`
   if (regular.value.has(key)) return
@@ -755,7 +733,6 @@ const getHistory = () => {
 
 // init
 onMounted(() => {
-  if (window.plus) isApp.value = true
   getData()
 })
 getLoaclData()
@@ -763,7 +740,7 @@ getConfig()
 getHistory()
 
 // ref
-defineExpose([dropdownItem, imageShow])
+defineExpose([dropdownItem])
 </script>
 
 <style lang="sass" scoped>
@@ -774,8 +751,14 @@ defineExpose([dropdownItem, imageShow])
   .num-tag
     position: fixed
     top: 15px
-    right: 10px
-    z-index: 9999
+    right: 15px
+    z-index: 100
+
+  .loading
+    position: absolute
+    top: 50%
+    left: 50%
+    transform: translate(-50%, -50%)
 
   .other-list
     display: flex
@@ -788,20 +771,21 @@ defineExpose([dropdownItem, imageShow])
     flex: 1
     background: #ddd
 
-    .info
-      margin: 10px
+  .viewed
+    box-sizing: border-box
+    border: 1px solid var(--van-primary-color)
 
-    .tags
-      display: flex
-      flex-wrap: wrap
-      justify-content: flex-end
-      margin-left: 10px
-
-      .tag
-        margin: 2px 5px
+  .collection
+    position: absolute
+    top: 0
+    right: 0
+    width: 20px
+    height: 20px
+    background: var(--van-primary-color)
+    clip-path: polygon(0 0, 50% 0, 100% 50%, 100% 100%)
 
   .save
-    z-index: 9999
+    z-index: 2000
     position: fixed
     bottom: 15px
     left: calc(50% - 22.5px)
@@ -823,8 +807,8 @@ defineExpose([dropdownItem, imageShow])
   padding: 15px 15px 0 15px
 
   .refresh
-    width: 40px
-    height: 40px
+    width: 38px
+    height: 38px
     margin-right: 10px
     font-size: 20px
     transform: rotateZ(90deg)
@@ -842,7 +826,7 @@ defineExpose([dropdownItem, imageShow])
   .index-title
     max-width: 80vw
     margin: auto
-    font-size: 12px
+    font-size: 14px
 
 @media screen and (max-width: 600px)
   .info
@@ -865,14 +849,6 @@ defineExpose([dropdownItem, imageShow])
   padding-bottom: 16px
   border-bottom-left-radius: 10px
   border-bottom-right-radius: 10px
-
-.r18-tip
-  color: #fff
-  text-align: center
-  font-weight: bold
-
-.cell-title
-  flex: 0 0 50px !important
 
 .custom-button
   width: 26px
