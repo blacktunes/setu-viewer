@@ -11,19 +11,19 @@
       title-class="cell-title"
       title="author"
       :value="img.author"
-      @click="search(1, img.uid)"
+      @click.stop="search(1, img.uid)"
     />
     <van-cell
       title-class="cell-title"
       title="uid"
       :value="img.uid"
-      @click="search(1, img.uid)"
+      @click.stop="search(1, img.uid)"
     />
     <van-cell
       title-class="cell-title"
       title="title"
       :value="img.title"
-      @click="search(2, img.title)"
+      @click.stop="search(2, img.title)"
     />
     <van-cell title-class="cell-title" title="pid" :value="img.pid" />
     <van-cell title-class="cell-title" title="tags">
@@ -35,7 +35,7 @@
             type="primary"
             v-for="(item, key) in img.tags"
             :key="`${index}-${key}`"
-            @click="search(2, item)"
+            @click.stop="search(2, item)"
             >{{ item }}</van-tag
           >
         </div>

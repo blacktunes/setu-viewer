@@ -9,7 +9,7 @@
           :title="title"
           ref="dropdownItem"
           @open="open"
-          @closed="closed"
+          @closed="onDropdownclosed"
         >
           <van-cell-group inset style="margin-top: 15px">
             <van-collapse v-model="activeNames">
@@ -35,13 +35,29 @@
             </van-collapse>
           </van-cell-group>
           <van-cell-group inset title="显示设置">
-            <van-cell center title="多列">
+            <van-cell center title="显示列数">
+              <template #right-icon>
+                <van-slider
+                  v-model="multiColNum"
+                  :min="1"
+                  :max="3"
+                  style="width: 187px; margin-right: 20px"
+                  @update:model-value="omMultiColNumChange"
+                  @change="omMultiColNumChanged"
+                >
+                  <template #button>
+                    <div class="custom-button">{{ multiColNum }}</div>
+                  </template>
+                </van-slider>
+              </template>
+            </van-cell>
+            <van-cell center title="低质图片">
               <template #right-icon>
                 <van-switch
-                  v-model="multiColumn"
+                  v-model="useThumb"
                   size="24px"
                   style="margin-right: 12px"
-                  @change="onMultiColumnChange"
+                  @change="saveConfig"
                 />
               </template>
             </van-cell>
@@ -61,7 +77,7 @@
               <template #right-icon>
                 <van-slider
                   v-model="num"
-                  :min="multiColumn ? 30 : 10"
+                  :min="isMultiColumn ? multiColNum * 10 : 10"
                   style="width: 187px; margin-right: 20px"
                 >
                   <template #button>
@@ -155,71 +171,62 @@
         image-size="300"
         style="height: 90%"
       />
-      <div class="other-list" v-if="multiColumn">
+      <div :class="{ 'other-list': isMultiColumn }">
         <transition-group name="van-fade">
-          <van-image
+          <van-swipe-cell
             v-for="(img, index) in list"
             :key="index"
             :id="index"
-            :src="img.urls.thumb"
-            lazy-load
-            width="33%"
-            @click="showImage(index)"
-            @load="onSmallLoad(img.pid, img.p, index)"
+            :disabled="multiColNum > 1"
+            :style="{
+              width: isMultiColumn
+                ? `${(100 / multiColNum).toFixed(0)}vw`
+                : '100%',
+              height: isMultiColumn
+                ? `${(100 / multiColNum).toFixed(0)}vw`
+                : '',
+              transition: 'all 0.2s, height 0.2s'
+            }"
           >
-            <div
-              class="collection"
-              v-if="!collection && !checkLocalData(img)"
-            ></div>
-            <template #loading>
-              <div style="width: 100%">
-                <img style="width: 100%" src="@/assets/loading.jpg" />
-              </div>
+            <van-image
+              width="100%"
+              height="100%"
+              lazy-load
+              fit="cover"
+              :src="useThumb ? img.urls.thumb : img.urls.small"
+              @click="showImage(index)"
+              @load="onSmallLoad(img.pid, img.p)"
+            >
+              <transition name="van-slide-down">
+                <div
+                  class="collection"
+                  v-if="!collection && !checkLocalData(img)"
+                ></div>
+              </transition>
+              <template #loading>
+                <div style="width: 100%">
+                  <img style="width: 100%" src="@/assets/loading.jpg" />
+                </div>
+              </template>
+              <template #error>
+                <div style="width: 100%">
+                  <img style="width: 100%" src="@/assets/error.jpg" />
+                </div>
+              </template>
+            </van-image>
+            <template #right>
+              <InfoBox
+                :index="index"
+                :img="img"
+                :like="checkLocalData(img)"
+                @search="search"
+                @setLoaclData="setLoaclData(img)"
+              />
             </template>
-            <template #error>
-              <div style="width: 100%">
-                <img style="width: 100%" src="@/assets/error.jpg" />
-              </div>
-            </template>
-          </van-image>
+          </van-swipe-cell>
         </transition-group>
       </div>
-      <template v-else>
-        <van-swipe-cell v-for="(img, index) in list" :key="index" :id="index">
-          <van-image
-            width="100%"
-            lazy-load
-            :src="img.urls.small"
-            :class="{viewed: img.viewed}"
-            @click="showImage(index)"
-            @load="onSmallLoad(img.pid, img.p, index)"
-          >
-            <div
-              class="collection"
-              v-if="!collection && !checkLocalData(img)"
-            ></div>
-            <template #loading>
-              <div style="width: 100%">
-                <img style="width: 100%" src="@/assets/loading.jpg" />
-              </div>
-            </template>
-            <template #error>
-              <div style="width: 100%">
-                <img style="width: 100%" src="@/assets/error.jpg" />
-              </div>
-            </template>
-          </van-image>
-          <template #right>
-            <InfoBox
-              :index="index"
-              :img="img"
-              :like="checkLocalData(img)"
-              @search="search"
-              @setLoaclData="setLoaclData(img)"
-            />
-          </template>
-        </van-swipe-cell>
-      </template>
+      <!-- </template> -->
     </van-list>
     <van-image-preview
       v-model:show="imageShow"
@@ -227,8 +234,8 @@
       :start-position="index"
       :loop="false"
       :close-on-popstate="false"
-      @closed="onSearch(false)"
-      @change="onChange"
+      @closed="onPreviewClosed"
+      @change="onPreviewChange"
     >
       <template v-slot:index>
         <div class="index" @click="showInfo">
@@ -289,12 +296,17 @@ const query: ReqQuery = {
 const num = ref(20)
 const R18 = ref(0)
 
-const multiColumn = ref(false)
 const collection = ref(false)
+
+const useThumb = ref(false)
+const multiColNum = ref(1)
+
+const isMultiColumn = computed(() => multiColNum.value > 1)
 
 const saveConfig = () => {
   const config = {
-    multiColumn: multiColumn.value,
+    useThumb: useThumb.value,
+    multiColNum: multiColNum.value,
     num: num.value,
     R18: R18.value
   }
@@ -304,22 +316,24 @@ const saveConfig = () => {
 const getConfig = () => {
   try {
     const config = JSON.parse(localStorage.getItem('setu-config') || '{}')
-    multiColumn.value = config.multiColumn ?? false
-    num.value = config.num ?? 20
-    R18.value = config.R18 ?? 0
+    for (const i in config) {
+      // eslint-disable-next-line no-eval
+      const j = eval(i)
+      if (j) {
+        j.value = config[i] || j.value
+      }
+    }
   } catch {}
 }
 
-const onMultiColumnChange = () => {
-  if (multiColumn.value) {
-    if (num.value < 30) {
-      num.value = 30
-    }
-  } else {
-    if (!collection.value) {
-      webList.value.splice(30)
-    }
+const omMultiColNumChange = () => {
+  if (num.value < multiColNum.value * 10) {
+    num.value = multiColNum.value * 10
   }
+}
+
+const omMultiColNumChanged = () => {
+  listRef.value?.check()
   saveConfig()
 }
 
@@ -358,7 +372,7 @@ const title = computed(() => {
 })
 
 const collectionName = computed(() => {
-  let temp = '收藏'
+  let temp = '色图收藏'
   if (loaclList.value.length > 0) {
     temp += ` (${loaclList.value.length})`
   }
@@ -393,7 +407,7 @@ const open = () => {
   data.R18 = R18.value
 }
 
-const closed = () => {
+const onDropdownclosed = () => {
   data.open = false
   // activeNames.value = []
   if (data.click) return
@@ -483,10 +497,12 @@ const onSearch = (flag: boolean) => {
 
 const search = (type: 1 | 2 | 3, key: number | string) => {
   if (type === 1) {
+    if (UID.value === key) return
     mode.value = 1
     UID.value = key
   }
   if (type === 2) {
+    if (keyword.value === key) return
     mode.value = 2
     keyword.value = key as string
   }
@@ -629,24 +645,21 @@ const showImage = (key: number) => {
   index.value = key
   _index = key
   imageShow.value = true
-  onRegularLoad(
-    list.value[index.value].pid,
-    list.value[index.value].p,
-    index.value
-  )
+  onRegularLoad(list.value[index.value].pid, list.value[index.value].p)
 }
 
-const onChange = (newKey: number) => {
+const onPreviewChange = (newKey: number) => {
   index.value = newKey
-  onRegularLoad(
-    list.value[index.value].pid,
-    list.value[index.value].p,
-    index.value
-  )
-  if (newKey === _index) return
-  if (_index !== -1) _index = -1
+  if (newKey !== _index) {
+    onRegularLoad(list.value[index.value].pid, list.value[index.value].p)
+    _index = -1
+  }
 
   window.location.hash = String(newKey)
+}
+
+const onPreviewClosed = () => {
+  onSearch(false)
 }
 
 const saveImage = () => {
@@ -683,21 +696,17 @@ const smallNum = ref(0)
 const regular = ref(new Set<string>())
 const regularNum = ref(0)
 
-const onSmallLoad = (pid: number, p: number, i: number) => {
+const onSmallLoad = (pid: number, p: number) => {
   if (collection.value) return
   ++smallNum.value
   const key = `${pid}-${p}`
-  if (small.value.has(key)) {
-    list.value[i].viewed = true
-    return
-  }
+  if (small.value.has(key)) return
   small.value.add(key)
   saveHistory()
 }
 
-const onRegularLoad = (pid: number, p: number, i: number) => {
+const onRegularLoad = (pid: number, p: number) => {
   if (collection.value) return
-  list.value[i].viewed = true
   ++regularNum.value
   const key = `${pid}-${p}`
   if (regular.value.has(key)) return
@@ -764,16 +773,11 @@ defineExpose([dropdownItem])
     display: flex
     flex-wrap: wrap
     justify-content: flex-start
-    margin-left: 1%
 
   .list
     overflow-y: auto
     flex: 1
     background: #ddd
-
-  .viewed
-    box-sizing: border-box
-    border: 1px solid var(--van-primary-color)
 
   .collection
     position: absolute
@@ -849,6 +853,9 @@ defineExpose([dropdownItem])
   padding-bottom: 16px
   border-bottom-left-radius: 10px
   border-bottom-right-radius: 10px
+
+.van-swipe-cell__wrapper
+  height: 100%
 
 .custom-button
   width: 26px
