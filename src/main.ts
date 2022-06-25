@@ -51,8 +51,6 @@ if (window.plus) {
 
 const app = createApp(App)
   .use(Lazyload, {
-    preload: 5,
-    loading: require('@/assets/loading.jpg'),
-    error: require('@/assets/error.jpg')
+    preload: 5
   })
   .mount('#app')

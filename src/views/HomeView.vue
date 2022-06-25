@@ -1,6 +1,12 @@
 <template>
   <div class="home">
-    <van-tag class="num-tag" type="primary" plain round v-if="numTag > 0">
+    <van-tag
+      class="num-tag"
+      :type="loading ? 'primary' : undefined"
+      plain
+      round
+      v-if="numTag > 0"
+    >
       {{ numTag }}
     </van-tag>
     <van-sticky style="margin-bottom: 5px">
@@ -77,7 +83,7 @@
               <template #right-icon>
                 <van-slider
                   v-model="num"
-                  :min="isMultiColumn ? multiColNum * 10 : 10"
+                  :min="isMultiColumn ? multiColNum * 5 : 10"
                   style="width: 187px; margin-right: 20px"
                 >
                   <template #button>
@@ -158,9 +164,9 @@
       v-model:error="error"
       :finished="finished"
       :immediate-check="false"
+      :offset="isMultiColumn ? 900 : 1500"
       loading-text="正在色色..."
       error-text="要不点这重试?"
-      offset="1500"
       :finished-text="finishedText"
       @load="onLoad"
       ref="listRef"
@@ -177,15 +183,12 @@
             v-for="(img, index) in list"
             :key="index"
             :id="index"
-            :disabled="multiColNum > 1"
+            :disabled="isMultiColumn"
             :style="{
               width: isMultiColumn
                 ? `${(100 / multiColNum).toFixed(0)}vw`
                 : '100%',
-              height: isMultiColumn
-                ? `${(100 / multiColNum).toFixed(0)}vw`
-                : '',
-              transition: 'all 0.2s, height 0.2s'
+              height: isMultiColumn ? `${(100 / multiColNum).toFixed(0)}vw` : ''
             }"
           >
             <van-image
@@ -205,7 +208,7 @@
               </transition>
               <template #loading>
                 <div style="width: 100%">
-                  <img style="width: 100%" src="@/assets/loading.jpg" />
+                  <img style="width: 100%" src="@/assets/loading.gif" />
                 </div>
               </template>
               <template #error>
@@ -233,28 +236,26 @@
       :images="_list"
       :start-position="index"
       :loop="false"
+      :show-index="false"
       :close-on-popstate="false"
       @closed="onPreviewClosed"
       @change="onPreviewChange"
     >
-      <template v-slot:index>
-        <div class="index" @click="showInfo">
-          <div class="index-title van-ellipsis">{{ list?.[index]?.title }}</div>
-        </div>
-      </template>
       <template #cover>
-        <transition name="van-slide-up">
+        <transition-group name="van-slide-up">
           <van-button
             v-if="imageShow && isApp"
             class="save"
-            icon="down"
-            type="primary"
-            plain
-            round
+            :icon="imageLoaded ? 'success' : 'down'"
             :loading="imageLoading"
             @click="saveImage"
           />
-        </transition>
+          <div v-if="imageShow" class="index">
+            <div class="title van-ellipsis" @click="showInfo">
+              {{ list?.[index]?.title }}
+            </div>
+          </div>
+        </transition-group>
       </template>
     </van-image-preview>
     <van-action-sheet v-model:show="previewInfo" @closed="onSearch(true)">
@@ -327,13 +328,15 @@ const getConfig = () => {
 }
 
 const omMultiColNumChange = () => {
-  if (num.value < multiColNum.value * 10) {
-    num.value = multiColNum.value * 10
+  if (num.value < multiColNum.value * 5) {
+    num.value = multiColNum.value * 5
   }
 }
 
 const omMultiColNumChanged = () => {
-  listRef.value?.check()
+  nextTick(() => {
+    listRef.value?.check()
+  })
   saveConfig()
 }
 
@@ -547,9 +550,9 @@ const finishedText = computed(() => (collection.value ? '' : '没有色色了'))
 
 const emptyImg = computed(() => {
   if (error.value) return require('@/assets/serve-error.jpg')
-  if (loading.value) return require('@/assets/ready.jpg')
+  if (loading.value) return require('@/assets/ready.gif')
   if (list.value.length < 1) return require('@/assets/empty.jpg')
-  return require('@/assets/loading.jpg')
+  return require('@/assets/loading.gif')
 })
 
 const checkLocalData = (item: ApiRes) => {
@@ -614,8 +617,10 @@ const getData = () => {
     })
     .catch(err => {
       loading.value = false
+
+      if (collection.value) return
+
       error.value = true
-      console.error(err)
       Toast({
         message: err.message || '我网呢?',
         icon: 'cross'
@@ -630,6 +635,7 @@ const getData = () => {
 
 // 图片预览
 const imageLoading = ref(false)
+const imageLoaded = ref(false)
 const index = ref(0)
 let _index = 0
 
@@ -641,6 +647,7 @@ const showInfo = () => {
 const showImage = (key: number) => {
   if (window.plus) {
     imageLoading.value = false
+    imageLoaded.value = false
   }
   index.value = key
   _index = key
@@ -649,10 +656,18 @@ const showImage = (key: number) => {
 }
 
 const onPreviewChange = (newKey: number) => {
+  if (window.plus) {
+    imageLoading.value = false
+    imageLoaded.value = false
+  }
   index.value = newKey
   if (newKey !== _index) {
     onRegularLoad(list.value[index.value].pid, list.value[index.value].p)
+  }
+
+  if (_index !== -1) {
     _index = -1
+    return
   }
 
   window.location.hash = String(newKey)
@@ -674,6 +689,9 @@ const saveImage = () => {
             message: `${d.filename}已保存`,
             position: 'bottom'
           })
+          if (imageLoading.value) {
+            imageLoaded.value = true
+          }
         })
       } else {
         Toast({
@@ -791,11 +809,37 @@ defineExpose([dropdownItem])
   .save
     z-index: 2000
     position: fixed
-    bottom: 15px
-    left: calc(50% - 22.5px)
-    width: 45px
-    height: 45px
-    font-size: 20px
+    bottom: 20px
+    right: 15px
+    width: 30px
+    height: 30px
+    font-size: 15px
+    background: transparent
+    border: 1px solid
+    color: #fff
+    padding: 0
+
+  .index
+    z-index: 2000
+    position: fixed
+    bottom: 20px
+    left: 0
+    width: 100vw
+    display: flex
+    align-items: center
+    justify-content: center
+    pointer-events: none
+
+    .title
+      max-width: calc(100vw - 130px)
+      line-height: 30px
+      text-align: center
+      font-size: 15px
+      color: #fff
+      padding: 0 10px
+      border-radius: 5px
+      background: rgba(0, 0, 0, 0.1)
+      pointer-events: auto
 
 .table
   width: 100%
@@ -820,17 +864,6 @@ defineExpose([dropdownItem])
   .confirm
     font-size: 20px
     height: 40px
-
-.index
-  text-align: center
-  padding: 1px 5px
-  border-radius: 5px
-  background: rgba(0, 0, 0, 0.1)
-
-  .index-title
-    max-width: 80vw
-    margin: auto
-    font-size: 14px
 
 @media screen and (max-width: 600px)
   .info
