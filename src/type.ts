@@ -15,7 +15,7 @@ export interface ApiRes {
   urls: {
     [key in Size]: string
   }
-  viewed?: boolean
+  info?: boolean
 }
 
 export type ReqQuery = Partial<{

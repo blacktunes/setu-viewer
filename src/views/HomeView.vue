@@ -44,15 +44,16 @@
             <van-cell center title="显示列数">
               <template #right-icon>
                 <van-slider
-                  v-model="multiColNum"
+                  v-model="_multiColNum"
                   :min="1"
                   :max="3"
                   style="width: 187px; margin-right: 20px"
                   @update:model-value="omMultiColNumChange"
-                  @change="omMultiColNumChanged"
+                  @drag-end="omMultiColNumChanged"
+                  @click="omMultiColNumChanged"
                 >
                   <template #button>
-                    <div class="custom-button">{{ multiColNum }}</div>
+                    <div class="custom-button">{{ _multiColNum }}</div>
                   </template>
                 </van-slider>
               </template>
@@ -178,18 +179,39 @@
         style="height: 90%"
       />
       <div :class="{ 'other-list': isMultiColumn }">
-        <transition-group name="van-fade">
+        <template v-if="isMultiColumn">
+          <transition-group name="van-fade">
+            <van-image
+              v-for="(img, i) in list"
+              :key="i"
+              :id="i"
+              :width="imgSize"
+              :height="imgSize"
+              :src="useThumb ? img.urls.thumb : img.urls.small"
+              :loading-icon="require('@/assets/loading.jpg')"
+              :error-icon="require('@/assets/error.jpg')"
+              :icon-size="imgSize"
+              lazy-load
+              fit="cover"
+              @click="showImage(i)"
+              @load="onSmallLoad(img.pid, img.p)"
+            >
+              <div
+                class="collection"
+                v-if="!collection && !checkLocalData(img)"
+              ></div>
+            </van-image>
+          </transition-group>
+        </template>
+        <template v-else>
           <van-swipe-cell
-            v-for="(img, index) in list"
-            :key="index"
-            :id="index"
-            :disabled="isMultiColumn"
-            :style="{
-              width: isMultiColumn
-                ? `${(100 / multiColNum).toFixed(0)}vw`
-                : '100%',
-              height: isMultiColumn ? `${(100 / multiColNum).toFixed(0)}vw` : ''
-            }"
+            v-for="(img, i) in list"
+            :key="i"
+            :id="i"
+            style="width: 100%"
+            @open="test(i, true)"
+            @close="test(i, false)"
+            :stop-propagation="true"
           >
             <van-image
               width="100%"
@@ -197,7 +219,10 @@
               lazy-load
               fit="cover"
               :src="useThumb ? img.urls.thumb : img.urls.small"
-              @click="showImage(index)"
+              :loading-icon="require('@/assets/loading.jpg')"
+              :error-icon="require('@/assets/error.jpg')"
+              :icon-size="`${(100 / multiColNum).toFixed(0)}vw`"
+              @click="showImage(i)"
               @load="onSmallLoad(img.pid, img.p)"
             >
               <transition name="van-slide-down">
@@ -206,30 +231,25 @@
                   v-if="!collection && !checkLocalData(img)"
                 ></div>
               </transition>
-              <template #loading>
-                <div style="width: 100%">
-                  <img style="width: 100%" src="@/assets/loading.gif" />
-                </div>
-              </template>
-              <template #error>
-                <div style="width: 100%">
-                  <img style="width: 100%" src="@/assets/error.jpg" />
-                </div>
-              </template>
             </van-image>
             <template #right>
-              <InfoBox
-                :index="index"
-                :img="img"
-                :like="checkLocalData(img)"
-                @search="search"
-                @setLoaclData="setLoaclData(img)"
-              />
+              <transition name="van-slide-left">
+                <InfoBox
+                  v-if="list[i].info"
+                  :index="i"
+                  :img="img"
+                  :like="checkLocalData(img)"
+                  @search="search"
+                  @setLoaclData="setLoaclData(img)"
+                />
+              </transition>
+              <div v-if="!list[i].info" class="info" style="margin: 10px">
+                <van-icon name="arrow-left" style="margin-top: 15px" />
+              </div>
             </template>
           </van-swipe-cell>
-        </transition-group>
+        </template>
       </div>
-      <!-- </template> -->
     </van-list>
     <van-image-preview
       v-model:show="imageShow"
@@ -300,6 +320,7 @@ const R18 = ref(0)
 const collection = ref(false)
 
 const useThumb = ref(false)
+const _multiColNum = ref(1)
 const multiColNum = ref(1)
 
 const isMultiColumn = computed(() => multiColNum.value > 1)
@@ -324,16 +345,18 @@ const getConfig = () => {
         j.value = config[i] || j.value
       }
     }
+    _multiColNum.value = multiColNum.value
   } catch {}
 }
 
 const omMultiColNumChange = () => {
-  if (num.value < multiColNum.value * 5) {
-    num.value = multiColNum.value * 5
+  if (num.value < _multiColNum.value * 5) {
+    num.value = _multiColNum.value * 5
   }
 }
 
 const omMultiColNumChanged = () => {
+  multiColNum.value = _multiColNum.value
   nextTick(() => {
     listRef.value?.check()
   })
@@ -552,7 +575,7 @@ const emptyImg = computed(() => {
   if (error.value) return require('@/assets/serve-error.jpg')
   if (loading.value) return require('@/assets/ready.gif')
   if (list.value.length < 1) return require('@/assets/empty.jpg')
-  return require('@/assets/loading.gif')
+  return require('@/assets/loading.jpg')
 })
 
 const checkLocalData = (item: ApiRes) => {
@@ -638,6 +661,8 @@ const imageLoading = ref(false)
 const imageLoaded = ref(false)
 const index = ref(0)
 let _index = 0
+
+const imgSize = computed(() => `${(100 / multiColNum.value).toFixed(0)}vw`)
 
 const showInfo = () => {
   searchEnd.value = false
@@ -768,6 +793,10 @@ getHistory()
 
 // ref
 defineExpose([dropdownItem])
+
+const test = (i: number, flag: boolean) => {
+  list.value[i].info = flag
+}
 </script>
 
 <style lang="sass" scoped>
@@ -864,14 +893,6 @@ defineExpose([dropdownItem])
   .confirm
     font-size: 20px
     height: 40px
-
-@media screen and (max-width: 600px)
-  .info
-    width: 80vw
-
-@media screen and (min-width: 600px)
-  .info
-    width: 480px
 </style>
 
 <style lang="sass">
@@ -904,4 +925,11 @@ defineExpose([dropdownItem])
     width: 600px
     left: 50% !important
     transform: translateX(-50%)
+
+  .info
+    width: 480px
+
+@media screen and (max-width: 600px)
+  .info
+    width: 80vw
 </style>
