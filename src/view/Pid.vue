@@ -1,1 +1,3 @@
-<template>看图</template>
+<template>
+  <div>看图</div>
+</template>

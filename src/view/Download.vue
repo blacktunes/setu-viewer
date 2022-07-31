@@ -1,1 +1,3 @@
-<template>下载</template>
+<template>
+  <div>下载</div>
+</template>

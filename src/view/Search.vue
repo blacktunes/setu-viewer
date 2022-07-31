@@ -1,1 +1,3 @@
-<template>搜图</template>
+<template>
+  <div>搜图</div>
+</template>

@@ -1,28 +1,20 @@
 <template>
-  <TopBtn :length="data.length" />
-  <van-tabs
-    v-model:active="active"
-    color="pink"
-    line-width="40"
-    sticky
-    shrink
-    animated
-    swipeable
-    ref="tabRef"
-  >
-    <van-tab title="收藏">
-      <ImageView
-        :show="show"
-        :list="data"
-        :multicolumn="setting.multicolumn"
-        @show-swiper="showSwiper"
-        @set-loacl-data="setLoaclData"
-        @search="search"
-        ref="viewRef"
-      />
-    </van-tab>
-  </van-tabs>
-  <ImageSwiper :data="data" @swiper-change="swiperChange" ref="swiperRef" />
+  <div>
+    <TopBtn :length="data.length" />
+    <div class="top-bar">
+      <van-icon style="margin-left: 10px;" name="like" color="pink" />
+    </div>
+    <ImageView
+      :show="show"
+      :list="data"
+      :multicolumn="setting.multicolumn"
+      @show-swiper="showSwiper"
+      @set-loacl-data="setLoaclData"
+      @search="search"
+      ref="viewRef"
+    />
+    <ImageSwiper :data="data" @swiper-change="swiperChange" ref="swiperRef" />
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -36,8 +28,6 @@ import { setting } from '../store/setting'
 import { ApiRes } from '../type'
 
 const router = useRouter()
-
-const active = ref(0)
 
 const show = ref(true)
 const data = ref<ApiRes[]>([])
@@ -77,3 +67,11 @@ setTimeout(() => {
   data.value = [...localData.value]
 }, 50)
 </script>
+
+<style lang="scss" scoped>
+.top-bar {
+  height: var(--van-button-default-height);
+  line-height: var(--van-button-default-height);
+  background: #fff;
+}
+</style>

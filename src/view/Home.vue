@@ -1,111 +1,120 @@
 <template>
-  <TopBtn :loading="loading" :length="data.length" />
-  <van-tabs
-    v-model:active="active"
-    color="pink"
-    line-width="40"
-    sticky
-    shrink
-    animated
-    swipeable
-    ellipsis
-    ref="tabRef"
-  >
-    <van-tab :title="title">
-      <ImageView
-        :show="!isRefresh"
-        :list="data"
-        :multicolumn="setting.multicolumn"
-        @scroll-end="getData"
-        @show-swiper="showSwiper"
-        @set-loacl-data="setLoaclData"
-        @search="search"
-        @load="setHistory"
-        ref="viewRef"
-      />
-    </van-tab>
-    <van-tab title="设置">
-      <div class="setting">
-        <van-cell-group inset class="card">
-          <van-collapse v-model="activeNames">
-            <van-collapse-item title="统计" name="1">
-              <table border="0" cellspacing="0" class="table">
-                <tr>
-                  <th class="van-hairline--bottom van-hairline--right"></th>
-                  <th class="van-hairline--bottom">小图</th>
-                  <th class="van-hairline--bottom">大图</th>
-                </tr>
-                <tr>
-                  <th class="van-hairline--right first-row">图片数</th>
-                  <td>{{ history.small.size }}</td>
-                  <td>{{ history.regular.size }}</td>
-                </tr>
-                <tr>
-                  <th class="van-hairline--right first-row">浏览数</th>
-                  <td>{{ history.smallNum }}</td>
-                  <td>{{ history.regularNum }}</td>
-                </tr>
-              </table>
-            </van-collapse-item>
-          </van-collapse>
-        </van-cell-group>
-        <van-cell-group inset class="card">
-          <van-cell title="代理" is-link arrow-direction="down" @click="proxyPopover = true">
-            <van-popover
-              v-model:show="proxyPopover"
-              :actions="proxyActions"
-              @select="proxyPopoverSelect"
+  <div>
+    <TopBtn :loading="loading" :length="data.length" />
+    <van-tabs
+      v-model:active="active"
+      color="pink"
+      line-width="40"
+      shrink
+      swipeable
+      ellipsis
+      ref="tabRef"
+    >
+      <van-tab :title="title">
+        <ImageView
+          :show="!isRefresh"
+          :list="data"
+          :multicolumn="setting.multicolumn"
+          @scroll-end="getData"
+          @show-swiper="showSwiper"
+          @set-loacl-data="setLoaclData"
+          @search="search"
+          @load="setHistory"
+          ref="viewRef"
+        />
+      </van-tab>
+      <van-tab title="设置">
+        <div class="setting">
+          <van-cell-group inset class="card">
+            <van-collapse v-model="activeNames">
+              <van-collapse-item title="统计" name="1">
+                <table border="0" cellspacing="0" class="table">
+                  <tr>
+                    <th class="van-hairline--bottom van-hairline--right"></th>
+                    <th class="van-hairline--bottom">小图</th>
+                    <th class="van-hairline--bottom">大图</th>
+                  </tr>
+                  <tr>
+                    <th class="van-hairline--right first-row">图片数</th>
+                    <td>{{ history.small.size }}</td>
+                    <td>{{ history.regular.size }}</td>
+                  </tr>
+                  <tr>
+                    <th class="van-hairline--right first-row">浏览数</th>
+                    <td>{{ history.smallNum }}</td>
+                    <td>{{ history.regularNum }}</td>
+                  </tr>
+                </table>
+              </van-collapse-item>
+            </van-collapse>
+          </van-cell-group>
+          <van-cell-group inset class="card">
+            <van-cell title="代理" is-link arrow-direction="down" @click="proxyPopover = true">
+              <van-popover
+                v-model:show="proxyPopover"
+                :actions="proxyActions"
+                @select="proxyPopoverSelect"
+              >
+                <template #reference>{{
+                  setting.proxy ? proxyActions[1].text : proxyActions[0].text
+                }}</template>
+              </van-popover>
+            </van-cell>
+            <van-field
+              v-model="setting.customProxy"
+              input-align="right"
+              label="代理地址"
+              v-if="setting.proxy"
+            />
+          </van-cell-group>
+          <van-cell-group inset class="card">
+            <van-cell title="R18" is-link arrow-direction="down" @click="r18Popover = true">
+              <van-popover
+                v-model:show="r18Popover"
+                :actions="r18Actions"
+                @select="r18PopoverSelect"
+              >
+                <template #reference>{{ r18Actions[setting.r18].text }}</template>
+              </van-popover>
+            </van-cell>
+          </van-cell-group>
+          <van-cell-group inset class="card">
+            <van-cell title="模式" is-link arrow-direction="down" @click="modePopover = true">
+              <van-popover
+                v-model:show="modePopover"
+                :actions="modeActions"
+                @select="modePopoverSelect"
+              >
+                <template #reference>{{ modeActions[setting.mode].text }}</template>
+              </van-popover>
+            </van-cell>
+            <van-field
+              v-model="setting.uid"
+              input-align="right"
+              label="UID"
+              type="digit"
+              v-if="setting.mode === 1"
+            />
+            <van-field
+              v-model="setting.keyword"
+              input-align="right"
+              label="关键字"
+              v-if="setting.mode === 2"
+            />
+            <van-button type="primary" block :disabled="canRefresh" @click="getData(true)"
+              >开始色色</van-button
             >
-              <template #reference>{{
-                setting.proxy ? proxyActions[1].text : proxyActions[0].text
-              }}</template>
-            </van-popover>
-          </van-cell>
-          <van-field
-            v-model="setting.customProxy"
-            input-align="right"
-            label="代理地址"
-            v-if="setting.proxy"
-          />
-        </van-cell-group>
-        <van-cell-group inset class="card">
-          <van-cell title="R18" is-link arrow-direction="down" @click="r18Popover = true">
-            <van-popover v-model:show="r18Popover" :actions="r18Actions" @select="r18PopoverSelect">
-              <template #reference>{{ r18Actions[setting.r18].text }}</template>
-            </van-popover>
-          </van-cell>
-        </van-cell-group>
-        <van-cell-group inset class="card">
-          <van-cell title="模式" is-link arrow-direction="down" @click="modePopover = true">
-            <van-popover
-              v-model:show="modePopover"
-              :actions="modeActions"
-              @select="modePopoverSelect"
-            >
-              <template #reference>{{ modeActions[setting.mode].text }}</template>
-            </van-popover>
-          </van-cell>
-          <van-field
-            v-model="setting.uid"
-            input-align="right"
-            label="UID"
-            type="digit"
-            v-if="setting.mode === 1"
-          />
-          <van-field
-            v-model="setting.keyword"
-            input-align="right"
-            label="关键字"
-            v-if="setting.mode === 2"
-          />
-          <van-button type="primary" block :disabled="canRefresh" @click="getData(true)"
-            >开始色色</van-button
-          >
-        </van-cell-group>
-      </div>
-    </van-tab>
-  </van-tabs>
-  <ImageSwiper :data="data" @swiper-change="swiperChange" @imageLoad="setHistory" ref="swiperRef" />
+          </van-cell-group>
+        </div>
+      </van-tab>
+    </van-tabs>
+    <ImageSwiper
+      :data="data"
+      @swiper-change="swiperChange"
+      @imageLoad="setHistory"
+      ref="swiperRef"
+    />
+  </div>
 </template>
 
 <script lang="ts" setup>

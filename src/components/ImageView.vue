@@ -77,7 +77,7 @@ const emit = defineEmits<{
 
 watch(props, () => {
   data.value = props.list
-  data.value.forEach(item => {
+  data.value.forEach((item) => {
     if (!item.realHeight) {
       item.realHeight = window.innerWidth
     }
@@ -111,8 +111,8 @@ const data2 = computed(() => {
   return temp
 })
 
-const imgLoaded = (i: number, e: Event) => {
-  data.value[i].realHeight = e['path'][0].offsetHeight
+const imgLoaded = (i: number, e: Event | any) => {
+  data.value[i].realHeight = e.path[0].offsetHeight
   emit('load', 0, data.value[i].pid)
 }
 
